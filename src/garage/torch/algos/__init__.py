@@ -18,7 +18,11 @@ from garage.torch.algos.sac import SAC
 from garage.torch.algos.mtsac import MTSAC
 from garage.torch.algos.pearl import PEARL
 
+#RL2
+from garage.torch.algos.rl2 import RL2
+from garage.torch.algos.rl2ppo import RL2PPO
+
 __all__ = [
     'BC', 'DDPG', 'DQN', 'VPG', 'PPO', 'TD3', 'TRPO', 'MAMLPPO', 'MAMLTRPO',
-    'MAMLVPG', 'MTSAC', 'PEARL', 'SAC'
+    'MAMLVPG', 'MTSAC', 'PEARL', 'SAC', 'RL2', 'RL2PPO'
 ]

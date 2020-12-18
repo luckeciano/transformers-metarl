@@ -132,7 +132,7 @@ class VPG(RLAlgorithm):
         """
         return self._discount
 
-    def _train_once(self, itr, eps):
+    def train_once(self, itr, eps):
         """Train the algorithm once.
 
         Args:
@@ -221,7 +221,7 @@ class VPG(RLAlgorithm):
         for _ in trainer.step_epochs():
             for _ in range(self._n_samples):
                 eps = trainer.obtain_episodes(trainer.step_itr)
-                last_return = self._train_once(trainer.step_itr, eps)
+                last_return = self.train_once(trainer.step_itr, eps)
                 trainer.step_itr += 1
 
         return last_return
