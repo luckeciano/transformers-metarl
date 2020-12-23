@@ -1,7 +1,7 @@
 """Garage Base."""
 # yapf: disable
 
-from garage._dtypes import EpisodeBatch, TimeStep, TimeStepBatch
+from garage._dtypes import EpisodeBatch, TimeStep, TimeStepBatch, AugmentedEpisodeBatch
 from garage._environment import (Environment, EnvSpec, EnvStep, InOutSpec,
                                  StepType, Wrapper)
 from garage._functions import (_Default, log_multitask_performance,
@@ -18,6 +18,7 @@ __all__ = [
     'wrap_experiment',
     'TimeStep',
     'EpisodeBatch',
+    'AugmentedEpisodeBatch',
     'log_multitask_performance',
     'log_performance',
     'InOutSpec',

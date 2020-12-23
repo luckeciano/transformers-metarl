@@ -2,6 +2,7 @@
 from garage.torch.algos import RL2
 import torch
 from garage.torch.optimizers import OptimizerWrapper
+from garage.torch import global_device
 
 
 class RL2PPO(RL2):
@@ -115,3 +116,26 @@ class RL2PPO(RL2):
                          entropy_method=entropy_method,
                          meta_evaluator=meta_evaluator,
                          n_epochs_per_eval=n_epochs_per_eval)
+
+    @property
+    def networks(self):
+        """Return all the networks within the model.
+
+        Returns:
+            list: A list of networks.
+
+        """
+        return [
+            self.policy, self.value_function, self.old_policy
+        ]
+
+    def to(self, device=None):
+        """Put all the networks within the model on device.
+
+        Args:
+            device (str): ID of GPU or CPU.
+
+        """
+        device = device or global_device()
+        for net in self.networks:
+            net.to(device)

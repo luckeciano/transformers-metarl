@@ -6,6 +6,7 @@ from torch import nn
 from torch.distributions import Normal
 from torch.distributions.independent import Independent
 
+from garage.torch import global_device
 from garage.torch.distributions import TanhNormal
 from garage.torch.modules.mlp_module import MLPModule
 from garage.torch.modules.multi_headed_mlp_module import MultiHeadedMLPModule
@@ -300,7 +301,7 @@ class GaussianMLPModule(GaussianMLPBaseModule):
         mean = self._mean_module(*inputs)
 
         broadcast_shape = list(inputs[0].shape[:-1]) + [self._action_dim]
-        uncentered_log_std = torch.zeros(*broadcast_shape) + self._init_std
+        uncentered_log_std = torch.zeros(*broadcast_shape).to(global_device()) + self._init_std
 
         return mean, uncentered_log_std
 

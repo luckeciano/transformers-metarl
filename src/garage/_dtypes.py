@@ -586,7 +586,7 @@ class EpisodeBatch(TimeStepBatch):
         check_timestep_batch(
             self,
             np.ndarray,
-            ignored_fields={'next_observations', 'episode_infos'})
+            ignored_fields={'observations', 'next_observations', 'episode_infos'})
 
     @classmethod
     def concatenate(cls, *batches):
@@ -1081,3 +1081,181 @@ def check_timestep_batch(batch, array_type, ignored_fields=()):
             raise ValueError(
                 f'step_types has dtype {value.dtype} but must have '
                 f'dtype StepType')
+
+@dataclass(frozen=True, init=False)
+class AugmentedEpisodeBatch(EpisodeBatch):
+    # pylint: disable=missing-return-doc, missing-return-type-doc, missing-param-doc, missing-type-doc  # noqa: E501
+    
+    def __init__(self, env_spec, episode_infos, observations, augmented_observations, hidden_states,
+                 last_observations, actions, rewards, env_infos, agent_infos,
+                 step_types, lengths):  # noqa: D102
+        super().__init__(env_spec, episode_infos, observations,
+            last_observations, actions, rewards, env_infos, agent_infos,
+            step_types, lengths)
+        object.__setattr__(self, 'augmented_observations', augmented_observations)
+        object.__setattr__(self, 'hidden_states', hidden_states)
+
+    @classmethod
+    def concatenate(cls, *batches):
+        """Create a EpisodeBatch by concatenating EpisodeBatches.
+
+        Args:
+            batches (list[EpisodeBatch]): Batches to concatenate.
+
+        Returns:
+            EpisodeBatch: The concatenation of the batches.
+
+        """
+        if __debug__:
+            for b in batches:
+                assert (set(b.env_infos.keys()) == set(
+                    batches[0].env_infos.keys()))
+                assert (set(b.agent_infos.keys()) == set(
+                    batches[0].agent_infos.keys()))
+        env_infos = {
+            k: np.concatenate([b.env_infos[k] for b in batches])
+            for k in batches[0].env_infos.keys()
+        }
+        agent_infos = {
+            k: np.concatenate([b.agent_infos[k] for b in batches])
+            for k in batches[0].agent_infos.keys()
+        }
+        episode_infos = {
+            k: np.concatenate([b.episode_infos_by_episode[k] for b in batches])
+            for k in batches[0].episode_infos_by_episode.keys()
+        }
+        return cls(
+            episode_infos=episode_infos,
+            env_spec=batches[0].env_spec,
+            observations=np.concatenate(
+                [batch.observations for batch in batches]),
+            augmented_observations=np.concatenate(
+                [batch.augmented_observations for batch in batches]),
+            hidden_states=np.concatenate(
+                [batch.hidden_states for batch in batches]),
+            last_observations=np.concatenate(
+                [batch.last_observations for batch in batches]),
+            actions=np.concatenate([batch.actions for batch in batches]),
+            rewards=np.concatenate([batch.rewards for batch in batches]),
+            env_infos=env_infos,
+            agent_infos=agent_infos,
+            step_types=np.concatenate([batch.step_types for batch in batches]),
+            lengths=np.concatenate([batch.lengths for batch in batches]))
+
+    @property
+    def padded_aug_observations(self):
+        """Padded augmented observations
+
+        Returns:
+            np.ndarray: Padded augmented observations with shape of
+                :math:`(N, max_episode_length, O^*)`.
+
+        """
+        return pad_batch_array(self.augmented_observations, self.lengths,
+                               self.env_spec.max_episode_length)
+
+    @property
+    def padded_hidden_states(self):
+        """Padded hidden_states.
+
+        Returns:
+            np.ndarray: Padded hidden states with shape of
+                :math:`(N, max_episode_length, O^*)`.
+
+        """
+        return pad_batch_array(self.hidden_states, self.lengths,
+                               self.env_spec.max_episode_length)
+
+    def split(self):
+        """Split an EpisodeBatch into a list of EpisodeBatches.
+
+        The opposite of concatenate.
+
+        Returns:
+            list[EpisodeBatch]: A list of EpisodeBatches, with one
+                episode per batch.
+
+        """
+        episodes = []
+        for i, (start, stop) in enumerate(self._episode_ranges()):
+            eps = AugmentedEpisodeBatch(
+                env_spec=self.env_spec,
+                episode_infos=slice_nested_dict(self.episode_infos_by_episode,
+                                                i, i + 1),
+                observations=self.observations[start:stop],
+                augmented_observations=self.augmented_observations[start:stop],
+                hidden_states=self.hidden_states[start:stop],
+                last_observations=np.asarray([self.last_observations[i]]),
+                actions=self.actions[start:stop],
+                rewards=self.rewards[start:stop],
+                env_infos=slice_nested_dict(self.env_infos, start, stop),
+                agent_infos=slice_nested_dict(self.agent_infos, start, stop),
+                step_types=self.step_types[start:stop],
+                lengths=np.asarray([self.lengths[i]]))
+            episodes.append(eps)
+
+        return episodes
+
+    def to_list(self):
+        """Convert the batch into a list of dictionaries.
+
+        Returns:
+            list[dict[str, np.ndarray or dict[str, np.ndarray]]]: Keys:
+                * observations (np.ndarray): Non-flattened array of
+                    observations. Has shape (T, S^*) (the unflattened state
+                    space of the current environment).  observations[i] was
+                    used by the agent to choose actions[i].
+                * next_observations (np.ndarray): Non-flattened array of
+                    observations. Has shape (T, S^*). next_observations[i] was
+                    observed by the agent after taking actions[i].
+                * actions (np.ndarray): Non-flattened array of actions. Must
+                    have shape (T, S^*) (the unflattened action space of the
+                    current environment).
+                * rewards (np.ndarray): Array of rewards of shape (T,) (1D
+                    array of length timesteps).
+                * agent_infos (dict[str, np.ndarray]): Dictionary of stacked,
+                    non-flattened `agent_info` arrays.
+                * env_infos (dict[str, np.ndarray]): Dictionary of stacked,
+                    non-flattened `env_info` arrays.
+                * step_types (numpy.ndarray): A numpy array of `StepType with
+                    shape (T,) containing the time step types for all
+                    transitions in this batch.
+                * episode_infos (dict[str, np.ndarray]): Dictionary of stacked,
+                    non-flattened `episode_info` arrays.
+
+        """
+        episodes = []
+        for i, (start, stop) in enumerate(self._episode_ranges()):
+            episodes.append({
+                'episode_infos':
+                {k: v[i:i + 1]
+                 for (k, v) in self.episode_infos.items()},
+                'observations':
+                self.observations[start:stop],
+                'augmented_observations':
+                self.augmented_observations[start:stop],
+                'hidden_states':
+                self.hidden_states[start:stop],
+                'next_observations':
+                np.concatenate((self.observations[1 + start:stop],
+                                [self.last_observations[i]])),
+                'actions':
+                self.actions[start:stop],
+                'rewards':
+                self.rewards[start:stop],
+                'env_infos':
+                {k: v[start:stop]
+                 for (k, v) in self.env_infos.items()},
+                'agent_infos':
+                {k: v[start:stop]
+                 for (k, v) in self.agent_infos.items()},
+                'step_types':
+                self.step_types[start:stop]
+            })
+        return episodes
+
+    @classmethod
+    def from_list(cls, env_spec, paths):
+        raise NotImplementedError
+    
+

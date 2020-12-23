@@ -3,6 +3,7 @@
 # pylint: disable=no-value-for-parameter
 import click
 import torch
+from garage.torch import set_gpu_mode
 
 from garage import wrap_experiment
 from garage.envs import GymEnv
@@ -16,15 +17,30 @@ from garage.torch.algos.rl2 import RL2Env, RL2Worker
 from garage.torch.policies import GaussianTransformerPolicy
 from garage.torch.value_functions import GaussianMLPValueFunction
 
+from prettytable import PrettyTable
+
+def count_parameters(model):
+    table = PrettyTable(["Modules", "Parameters"])
+    total_params = 0
+    for name, parameter in model.named_parameters():
+        if not parameter.requires_grad: 
+            continue
+        param = parameter.numel()
+        table.add_row([name, param])
+        total_params+=param
+    print(table)
+    print(f"Total Trainable Params: {total_params}")
+    return total_params
+
 
 @click.command()
 @click.option('--seed', default=1)
 @click.option('--max_episode_length', default=100)
 @click.option('--meta_batch_size', default=10)
-@click.option('--n_epochs', default=10)
+@click.option('--n_epochs', default=1000)
 @click.option('--episode_per_task', default=4)
 @wrap_experiment
-def rl2_ppo_halfcheetah(ctxt, seed, max_episode_length, meta_batch_size,
+def transformer_ppo_halfcheetah(ctxt, seed, max_episode_length, meta_batch_size,
                         n_epochs, episode_per_task):
     """Train PPO with HalfCheetah environment.
 
@@ -51,11 +67,14 @@ def rl2_ppo_halfcheetah(ctxt, seed, max_episode_length, meta_batch_size,
                 max_episode_length=max_episode_length)).spec
     policy = GaussianTransformerPolicy(name='policy',
                                 env_spec=env_spec)
+    count_parameters(policy)
 
     value_function = GaussianMLPValueFunction(env_spec=env_spec,
                                               hidden_sizes=(32, 32),
                                               hidden_nonlinearity=torch.tanh,
                                               output_nonlinearity=None)
+
+    count_parameters(value_function)
 
     algo = RL2PPO(meta_batch_size=meta_batch_size,
                     task_sampler=tasks,
@@ -74,6 +93,12 @@ def rl2_ppo_halfcheetah(ctxt, seed, max_episode_length, meta_batch_size,
                     policy_ent_coeff=0.02,
                     center_adv=False)
 
+    if torch.cuda.is_available():
+        set_gpu_mode(True)
+    else:
+        set_gpu_mode(False)
+    algo.to()
+
     trainer.setup(algo,
                     tasks.sample(meta_batch_size),
                     sampler_cls=LocalSampler,
@@ -86,4 +111,4 @@ def rl2_ppo_halfcheetah(ctxt, seed, max_episode_length, meta_batch_size,
                     meta_batch_size)
 
 
-rl2_ppo_halfcheetah()
+transformer_ppo_halfcheetah()

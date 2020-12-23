@@ -1,7 +1,7 @@
 """Sampler that runs workers in the main process."""
 import copy
 
-from garage import EpisodeBatch
+from garage import EpisodeBatch, AugmentedEpisodeBatch
 from garage.sampler.sampler import Sampler
 
 
@@ -118,7 +118,7 @@ class LocalSampler(Sampler):
                 completed_samples += len(batch.actions)
                 batches.append(batch)
                 if completed_samples >= num_samples:
-                    samples = EpisodeBatch.concatenate(*batches)
+                    samples = AugmentedEpisodeBatch.concatenate(*batches)
                     self.total_env_steps += sum(samples.lengths)
                     return samples
 

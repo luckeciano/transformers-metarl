@@ -11,7 +11,7 @@ from garage import log_performance
 from garage.np import discount_cumsum
 from garage.np.algos import RLAlgorithm
 from garage.sampler import RaySampler
-from garage.torch import compute_advantages, filter_valids
+from garage.torch import compute_advantages, filter_valids, np_to_torch
 from garage.torch.optimizers import OptimizerWrapper
 
 
@@ -143,9 +143,11 @@ class VPG(RLAlgorithm):
             numpy.float64: Calculated mean value of undiscounted returns.
 
         """
-        obs = torch.Tensor(eps.padded_observations)
-        rewards = torch.Tensor(eps.padded_rewards)
-        returns = torch.Tensor(
+        obs = np_to_torch(eps.padded_observations)
+        aug_obs = np_to_torch(eps.padded_aug_observations)
+        hidden_states = np_to_torch(eps.padded_hidden_states)
+        rewards = np_to_torch(eps.padded_rewards)
+        returns = np_to_torch(
             np.stack([
                 discount_cumsum(reward, self.discount)
                 for reward in eps.padded_rewards
@@ -155,32 +157,34 @@ class VPG(RLAlgorithm):
             baselines = self._value_function(obs)
 
         if self._maximum_entropy:
-            policy_entropies = self._compute_policy_entropy(obs)
+            policy_entropies = self._compute_policy_entropy(aug_obs, hidden_states)
             rewards += self._policy_ent_coeff * policy_entropies
 
-        obs_flat = torch.Tensor(eps.observations)
-        actions_flat = torch.Tensor(eps.actions)
-        rewards_flat = torch.Tensor(eps.rewards)
+        obs_flat = np_to_torch(eps.observations)
+        aug_obs_flat = np_to_torch(eps.augmented_observations)
+        hidden_st_flat = np_to_torch(eps.hidden_states)
+        actions_flat = np_to_torch(eps.actions)
+        rewards_flat = np_to_torch(eps.rewards)
         returns_flat = torch.cat(filter_valids(returns, valids))
         advs_flat = self._compute_advantage(rewards, valids, baselines)
 
         with torch.no_grad():
             policy_loss_before = self._compute_loss_with_adv(
-                obs_flat, actions_flat, rewards_flat, advs_flat)
+                aug_obs_flat, hidden_st_flat, actions_flat, rewards_flat, advs_flat)
             vf_loss_before = self._value_function.compute_loss(
                 obs_flat, returns_flat)
-            kl_before = self._compute_kl_constraint(obs)
+            kl_before = self._compute_kl_constraint(aug_obs, hidden_states)
 
-        self._train(obs_flat, actions_flat, rewards_flat, returns_flat,
+        self._train(obs_flat, aug_obs_flat, hidden_st_flat, actions_flat, rewards_flat, returns_flat,
                     advs_flat)
 
         with torch.no_grad():
             policy_loss_after = self._compute_loss_with_adv(
-                obs_flat, actions_flat, rewards_flat, advs_flat)
+                aug_obs, hidden_st_flat, actions_flat, rewards_flat, advs_flat)
             vf_loss_after = self._value_function.compute_loss(
                 obs_flat, returns_flat)
-            kl_after = self._compute_kl_constraint(obs)
-            policy_entropy = self._compute_policy_entropy(obs)
+            kl_after = self._compute_kl_constraint(aug_obs, hidden_states)
+            policy_entropy = self._compute_policy_entropy(aug_obs, hidden_states)
 
         with tabular.prefix(self.policy.name):
             tabular.record('/LossBefore', policy_loss_before.item())
@@ -226,7 +230,7 @@ class VPG(RLAlgorithm):
 
         return last_return
 
-    def _train(self, obs, actions, rewards, returns, advs):
+    def _train(self, obs, aug_obs, hidden_states, actions, rewards, returns, advs):
         r"""Train the policy and value function with minibatch.
 
         Args:
@@ -241,12 +245,12 @@ class VPG(RLAlgorithm):
 
         """
         for dataset in self._policy_optimizer.get_minibatch(
-                obs, actions, rewards, advs):
+                aug_obs, hidden_states, actions, rewards, advs):
             self._train_policy(*dataset)
         for dataset in self._vf_optimizer.get_minibatch(obs, returns):
             self._train_value_function(*dataset)
 
-    def _train_policy(self, obs, actions, rewards, advantages):
+    def _train_policy(self, obs, hidden_states, actions, rewards, advantages):
         r"""Train the policy.
 
         Args:
@@ -264,7 +268,7 @@ class VPG(RLAlgorithm):
 
         """
         self._policy_optimizer.zero_grad()
-        loss = self._compute_loss_with_adv(obs, actions, rewards, advantages)
+        loss = self._compute_loss_with_adv(obs, hidden_states, actions, rewards, advantages)
         loss.backward()
         self._policy_optimizer.step()
 
@@ -291,7 +295,7 @@ class VPG(RLAlgorithm):
 
         return loss
 
-    def _compute_loss(self, obs, actions, rewards, valids, baselines):
+    def _compute_loss(self, obs, hidden_states, actions, rewards, valids, baselines):
         r"""Compute mean value of loss.
 
         Notes: P is the maximum episode length (self.max_episode_length)
@@ -313,14 +317,15 @@ class VPG(RLAlgorithm):
 
         """
         obs_flat = torch.cat(filter_valids(obs, valids))
+        hid_st_flat = torch.cat(filter_valids(hidden_states, valids))
         actions_flat = torch.cat(filter_valids(actions, valids))
         rewards_flat = torch.cat(filter_valids(rewards, valids))
         advantages_flat = self._compute_advantage(rewards, valids, baselines)
 
-        return self._compute_loss_with_adv(obs_flat, actions_flat,
+        return self._compute_loss_with_adv(obs_flat, hid_st_flat, actions_flat,
                                            rewards_flat, advantages_flat)
 
-    def _compute_loss_with_adv(self, obs, actions, rewards, advantages):
+    def _compute_loss_with_adv(self, obs, hidden_states, actions, rewards, advantages):
         r"""Compute mean value of loss.
 
         Args:
@@ -337,10 +342,10 @@ class VPG(RLAlgorithm):
             torch.Tensor: Calculated negative mean scalar value of objective.
 
         """
-        objectives = self._compute_objective(advantages, obs, actions, rewards)
+        objectives = self._compute_objective(advantages, obs, hidden_states, actions, rewards)
 
         if self._entropy_regularzied:
-            policy_entropies = self._compute_policy_entropy(obs)
+            policy_entropies = self._compute_policy_entropy(obs, hidden_states)
             objectives += self._policy_ent_coeff * policy_entropies
 
         return -objectives.mean()
@@ -377,7 +382,7 @@ class VPG(RLAlgorithm):
 
         return advantage_flat
 
-    def _compute_kl_constraint(self, obs):
+    def _compute_kl_constraint(self, obs, hidden_states):
         r"""Compute KL divergence.
 
         Compute the KL divergence between the old policy distribution and
@@ -395,16 +400,16 @@ class VPG(RLAlgorithm):
 
         """
         with torch.no_grad():
-            old_dist = self._old_policy(obs)[0]
+            old_dist = self._old_policy(obs, hidden_states)[0]
 
-        new_dist = self.policy(obs)[0]
+        new_dist = self.policy(obs, hidden_states)[0]
 
         kl_constraint = torch.distributions.kl.kl_divergence(
             old_dist, new_dist)
 
         return kl_constraint.mean()
 
-    def _compute_policy_entropy(self, obs):
+    def _compute_policy_entropy(self, obs, hidden_states):
         r"""Compute entropy value of probability distribution.
 
         Notes: P is the maximum episode length (self.max_episode_length)
@@ -420,9 +425,9 @@ class VPG(RLAlgorithm):
         """
         if self._stop_entropy_gradient:
             with torch.no_grad():
-                policy_entropy = self.policy(obs)[0].entropy()
+                policy_entropy = self.policy(obs, hidden_states)[0].entropy()
         else:
-            policy_entropy = self.policy(obs)[0].entropy()
+            policy_entropy = self.policy(obs, hidden_states)[0].entropy()
 
         # This prevents entropy from becoming negative for small policy std
         if self._use_softplus_entropy:
@@ -430,7 +435,7 @@ class VPG(RLAlgorithm):
 
         return policy_entropy
 
-    def _compute_objective(self, advantages, obs, actions, rewards):
+    def _compute_objective(self, advantages, obs, hidden_states, actions, rewards):
         r"""Compute objective value.
 
         Args:
@@ -449,6 +454,6 @@ class VPG(RLAlgorithm):
 
         """
         del rewards
-        log_likelihoods = self.policy(obs)[0].log_prob(actions)
+        log_likelihoods = self.policy(obs, hidden_states)[0].log_prob(actions)
 
         return log_likelihoods * advantages

@@ -2,6 +2,8 @@
 import torch
 from torch import nn
 import math
+import numpy as np
+from garage.torch import global_device, np_to_torch
 
 from garage.torch.modules import GaussianMLPModule, MLPModule
 from garage.torch.policies.stochastic_policy import StochasticPolicy
@@ -71,7 +73,6 @@ class GaussianTransformerPolicy(StochasticPolicy):
 
     def __init__(self,
                  env_spec,
-                 encoding_output=120,
                  encoding_hidden_sizes=(64,64),
                  encoding_non_linearity=None,
                  mlp_hidden_sizes=(64, 64),
@@ -87,22 +88,27 @@ class GaussianTransformerPolicy(StochasticPolicy):
                  max_std=None,
                  std_parameterization='exp',
                  layer_normalization=False,
-                 d_model=120,
+                 d_model=16,
                  dropout=0.0,
                  max_len=5000,
                  nhead=8,
-                 num_encoder_layers=6,
-                 num_decoder_layers=6,
+                 num_encoder_layers=1,
+                 num_decoder_layers=1,
                  dim_feedforward=120,
                  activation='relu',
+                 hidden_horizon=5,
+                 obs_horizon=100,
                  name='GaussianTransformerPolicy'):
         super().__init__(env_spec, name)
         self._obs_dim = env_spec.observation_space.flat_dim
         self._action_dim = env_spec.action_space.flat_dim
+        self._hidden_horizon = hidden_horizon
+        self._obs_horizon = obs_horizon
+        self._d_model = d_model
 
         self._obs_embedding = MLPModule(
             input_dim = self._obs_dim,
-            output_dim = encoding_output,
+            output_dim = d_model,
             hidden_sizes = encoding_hidden_sizes,
             hidden_nonlinearity=mlp_hidden_nonlinearity,
             hidden_w_init=mlp_hidden_w_init,
@@ -129,7 +135,7 @@ class GaussianTransformerPolicy(StochasticPolicy):
         )
 
         self._policy_head = GaussianMLPModule(
-            input_dim=self._obs_dim,
+            input_dim=2*d_model, # current working memory + current episodic memory
             output_dim=self._action_dim,
             hidden_sizes=mlp_hidden_sizes,
             hidden_nonlinearity=mlp_hidden_nonlinearity,
@@ -145,6 +151,12 @@ class GaussianTransformerPolicy(StochasticPolicy):
             std_parameterization=std_parameterization,
             layer_normalization=layer_normalization)
 
+        self._prev_hiddens = None
+        self._prev_observations = None
+        self._prev_actions = None
+        self._episodic_memory_counter = None
+        self._new_episode = None
+
     def forward(self, observations, hidden_states):
         """Compute the action distributions from the observations.
 
@@ -158,8 +170,129 @@ class GaussianTransformerPolicy(StochasticPolicy):
             torch.Tensor: Hidden States
 
         """
-        embedding = self._obs_embedding(observations) #(S_len, B, output_step)
-        embedding_pos = self._positional_encoding(embedding)
-        transformer_output = self._transformer_module(embedding_pos, hidden_states) #(T, B, target_output)
-        dist = self._policy_head(transformer_output[-1:,:, :]) #get just the last hidden state as input for policy head
-        return (dist, dict(mean=dist.mean, log_std=(dist.variance**.5).log()), hidden_states)
+        # Get original shapes and reshape tensors to have a single batch dimension
+        obs_shape = list(observations.shape)
+        hid_st_shape = list(hidden_states.shape)
+        batch_shape = hid_st_shape[:-2] 
+        observations = torch.reshape(observations, (-1, obs_shape[-2], obs_shape[-1]))
+        hidden_states = torch.reshape(hidden_states, (-1, hid_st_shape[-2], hid_st_shape[-1])) # reducing batching for single dimension
+
+        # Computing working memory as a representation from tuple (obs, act, rew)
+        working_memo = self._obs_embedding(observations) #(B, S_len, output_step)
+
+        # Get current working memory as the most recent in the tensor
+        curr_working_memo = working_memo[:, -1:, :] 
+
+        working_memo = working_memo.permute(1, 0, 2) #Transformer module inputs (S_len, B, output_step)
+        wm_pos = self._positional_encoding(working_memo)
+        hidden_states = hidden_states.permute(1, 0, 2) #Transformer module inputs (S_len, B, output_step)
+        transformer_output = self._transformer_module(wm_pos, hidden_states) #(T, B, target_output)
+        transformer_output = transformer_output.permute(1, 0, 2) # going back to batch first
+
+        # Compute policy head input
+        last_hidden = transformer_output[:, -1:, :]
+        final_shape_hidden = batch_shape + hid_st_shape[-1:] #final shape = batch shape + feature dimension
+        final_shape_obs = batch_shape + [self._obs_embedding._output_dim]
+        last_hidden = torch.reshape(last_hidden, final_shape_hidden) #get just the last hidden state as input for policy head
+        curr_working_memo = torch.reshape(curr_working_memo, final_shape_obs)
+
+        policy_head_input = torch.cat((curr_working_memo, last_hidden), axis=-1)
+        dist = self._policy_head(policy_head_input) 
+        return (dist, dict(mean=dist.mean, log_std=(dist.variance**.5).log()), transformer_output)
+
+    def reset(self, do_resets=None):
+        """Reset the policy.
+
+        Note:
+            If `do_resets` is None, it will be by default `np.array([True])`
+            which implies the policy will not be "vectorized", i.e. number of
+            parallel environments for training data sampling = 1.
+
+        Args:
+            do_resets (numpy.ndarray): Bool that indicates terminal state(s).
+
+        """
+        if do_resets is None:
+            do_resets = np.array([True])
+        if self._prev_actions is None or len(do_resets) != len(
+                self._prev_actions):
+            self._prev_actions = np.zeros(
+                (len(do_resets), self._action_dim))
+            self._prev_hiddens = np.zeros((len(do_resets), self._hidden_horizon, self._d_model))
+
+        self._prev_actions[do_resets] = 0.
+        self._prev_hiddens[do_resets] = 0.
+        self._episodic_memory_counter = -1
+
+    def reset_observations(self, do_resets=None):
+        if do_resets is None:
+            do_resets = np.array([True])
+        self._prev_observations = np.zeros((len(do_resets), self._obs_horizon, self._obs_dim))
+        self._episodic_memory_counter += 1
+        self._new_episode = True
+
+    def get_action(self, observation):
+        """Get single action from this policy for the input observation.
+
+        Args:
+            observation (numpy.ndarray): Observation from environment.
+
+        Returns:
+            numpy.ndarray: Actions
+            dict: Predicted action and agent information.
+
+        Note:
+            It returns an action and a dict, with keys
+            - mean (numpy.ndarray): Mean of the distribution.
+            - log_std (numpy.ndarray): Log standard deviation of the
+                distribution.
+            - prev_action (numpy.ndarray): Previous action, only present if
+                self._state_include_action is True.
+
+        """
+        actions, agent_infos, aug_obs, prev_hiddens = self.get_actions([observation])
+        return actions[0], {k: v[0] for k, v in agent_infos.items()}, aug_obs, prev_hiddens
+
+    def get_actions(self, observations):
+        """Get multiple actions from this policy for the input observations.
+
+        Args:
+            observations (numpy.ndarray): Observations from environment.
+
+        Returns:
+            numpy.ndarray: Actions
+            dict: Predicted action and agent information.
+
+        Note:
+            It returns an action and a dict, with keys
+            - mean (numpy.ndarray): Means of the distribution.
+            - log_std (numpy.ndarray): Log standard deviations of the
+                distribution.
+            - prev_action (numpy.ndarray): Previous action, only present if
+                self._state_include_action is True.
+
+        """
+        observations = self._env_spec.observation_space.flatten_n(observations)
+        observations = np.expand_dims(observations, axis=1)
+        self._prev_observations = np.concatenate((self._prev_observations[:, 1:, :], observations), axis=1)
+        encoder_input = np_to_torch(self._prev_observations)
+        decodder_input = np_to_torch(self._prev_hiddens)
+        dist, info, hidden_states = self.forward(encoder_input, decodder_input)
+        samples = dist.sample().cpu().numpy()
+        self._prev_actions = samples
+        self._update_episodic_memory(hidden_states)
+
+        return samples, {
+            k: v.detach().cpu().numpy()
+            for (k, v) in info.items()
+        }, self._prev_observations, self._prev_hiddens
+
+    def _update_episodic_memory(self, hidden_states):
+        if self._episodic_memory_counter < self._hidden_horizon: # fits in memory: just keep updating the right index
+            self._prev_hiddens[:, self._episodic_memory_counter, :] = hidden_states[:, -1, :].detach().cpu().numpy()
+        else: # more episodes than episodic memory length
+            if self._new_episode: # remove the last episode and insert a new one
+                self._prev_hiddens = self._prev_hiddens = np.concatenate((self._prev_hiddens[:, 1:, :], hidden_states[:, -1:, :].detach().cpu().numpy()), axis=1)
+                self._new_episode = False
+            else: # just update the last
+                self._prev_hiddens[:, -1, :] = hidden_states[:, -1, :].detach().cpu().numpy()

@@ -4,14 +4,14 @@ This module contains RL2, RL2Worker and the environment wrapper for RL2.
 """
 # yapf: disable
 import abc
-import collections
+from collections import defaultdict
 
 import akro
 from dowel import logger
 import numpy as np
 
 from garage import (EnvSpec, EnvStep, EpisodeBatch, log_multitask_performance,
-                    StepType, Wrapper)
+                    StepType, Wrapper, AugmentedEpisodeBatch)
 from garage.np.algos import MetaRLAlgorithm
 from garage.sampler import DefaultWorker
 from garage.torch.algos import PPO
@@ -143,6 +143,9 @@ class RL2Worker(DefaultWorker):
         super().__init__(seed=seed,
                          max_episode_length=max_episode_length,
                          worker_number=worker_number)
+        self._augmented_obs = []
+        self._hidden_states = []
+
 
     def start_episode(self):
         """Begin a new episode."""
@@ -158,6 +161,7 @@ class RL2Worker(DefaultWorker):
         """
         self.agent.reset()
         for _ in range(self._n_episodes_per_trial):
+            self.agent.reset_observations()
             self.start_episode()
             while not self.step_episode():
                 pass
@@ -165,6 +169,90 @@ class RL2Worker(DefaultWorker):
                                                  self._worker_number)
         return self.collect_episode()
 
+    def step_episode(self):
+        """Take a single time-step in the current episode.
+
+        Returns:
+            bool: True iff the episode is done, either due to the environment
+            indicating termination of due to reaching `max_episode_length`.
+
+        """
+        if self._eps_length < self._max_episode_length:
+            a, agent_info, aug_obs, hidden_states = self.agent.get_action(self._prev_obs) #augment_obs = obs + hidden_states
+            es = self.env.step(a)
+            self._observations.append(self._prev_obs)
+            self._augmented_obs.append(aug_obs)
+            self._hidden_states.append(hidden_states)
+            self._env_steps.append(es)
+            for k, v in agent_info.items():
+                self._agent_infos[k].append(v)
+            self._eps_length += 1
+
+            if not es.terminal:
+                self._prev_obs = es.observation
+                return False
+        self._lengths.append(self._eps_length)
+        self._last_observations.append(self._prev_obs)
+        return True
+
+    
+    def collect_episode(self):
+        """Collect the current episode, clearing the internal buffer.
+
+        Returns:
+            EpisodeBatch: A batch of the episodes completed since the last call
+                to collect_episode().
+
+        """
+        observations = self._observations
+        self._observations = []
+        last_observations = self._last_observations
+        self._last_observations = []
+        aug_observations = np.squeeze(self._augmented_obs, axis=1)
+        self._augmented_obs = []
+        hidden_states = np.squeeze(self._hidden_states, axis=1)
+        self._hidden_states = []
+
+        actions = []
+        rewards = []
+        env_infos = defaultdict(list)
+        step_types = []
+
+        for es in self._env_steps:
+            actions.append(es.action)
+            rewards.append(es.reward)
+            step_types.append(es.step_type)
+            for k, v in es.env_info.items():
+                env_infos[k].append(v)
+        self._env_steps = []
+
+        agent_infos = self._agent_infos
+        self._agent_infos = defaultdict(list)
+        for k, v in agent_infos.items():
+            agent_infos[k] = np.asarray(v)
+
+        for k, v in env_infos.items():
+            env_infos[k] = np.asarray(v)
+
+        episode_infos = self._episode_infos
+        self._episode_infos = defaultdict(list)
+        for k, v in episode_infos.items():
+            episode_infos[k] = np.asarray(v)
+
+        lengths = self._lengths
+        self._lengths = []
+        return AugmentedEpisodeBatch(env_spec=self.env.spec,
+                            episode_infos=episode_infos,
+                            observations=np.asarray(observations),
+                            augmented_observations = np.asarray(aug_observations),
+                            hidden_states = np.asarray(hidden_states),
+                            last_observations=np.asarray(last_observations),
+                            actions=np.asarray(actions),
+                            rewards=np.asarray(rewards),
+                            step_types=np.asarray(step_types, dtype=StepType),
+                            env_infos=dict(env_infos),
+                            agent_infos=dict(agent_infos),
+                            lengths=np.asarray(lengths, dtype='i'))
 
 class NoResetPolicy:
     """A policy that does not reset.
@@ -420,27 +508,27 @@ class RL2(MetaRLAlgorithm, abc.ABC):
             ValueError: If 'batch_idx' is not found.
 
         """
-        concatenated_paths = []
+        # concatenated_paths = []
 
-        paths_by_task = collections.defaultdict(list)
-        for episode in episodes.split():
-            if hasattr(episode, 'batch_idx'):
-                paths_by_task[episode.batch_idx[0]].append(episode)
-            elif 'batch_idx' in episode.agent_infos:
-                paths_by_task[episode.agent_infos['batch_idx'][0]].append(
-                    episode)
-            else:
-                raise ValueError(
-                    'Batch idx is required for RL2 but not found, '
-                    'Make sure to use garage.tf.algos.rl2.RL2Worker '
-                    'for sampling')
+        # paths_by_task = collections.defaultdict(list)
+        # for episode in episodes.split():
+        #     if hasattr(episode, 'batch_idx'):
+        #         paths_by_task[episode.batch_idx[0]].append(episode)
+        #     elif 'batch_idx' in episode.agent_infos:
+        #         paths_by_task[episode.agent_infos['batch_idx'][0]].append(
+        #             episode)
+        #     else:
+        #         raise ValueError(
+        #             'Batch idx is required for RL2 but not found, '
+        #             'Make sure to use garage.tf.algos.rl2.RL2Worker '
+        #             'for sampling')
 
-        # all path in paths_by_task[i] are sampled from task[i]
-        for episode_list in paths_by_task.values():
-            concatenated_path = self._concatenate_episodes(episode_list)
-            concatenated_paths.append(concatenated_path)
+        # # all path in paths_by_task[i] are sampled from task[i]
+        # for episode_list in paths_by_task.values():
+        #     concatenated_path = self._concatenate_episodes(episode_list)
+        #     concatenated_paths.append(concatenated_path)
 
-        concatenated_episodes = EpisodeBatch.concatenate(*concatenated_paths)
+        # concatenated_episodes = EpisodeBatch.concatenate(*concatenated_paths)
 
         name_map = None
         if hasattr(self._task_sampler, '_envs') and hasattr(
@@ -455,7 +543,7 @@ class RL2(MetaRLAlgorithm, abc.ABC):
 
         average_return = np.mean(undiscounted_returns)
 
-        return concatenated_episodes, average_return
+        return episodes, average_return
 
     def _concatenate_episodes(self, episode_list):
         """Concatenate episodes.
@@ -508,6 +596,17 @@ class RL2(MetaRLAlgorithm, abc.ABC):
     def policy(self):
         """Policy: Policy to be used."""
         return self._inner_algo.policy
+
+    @property
+    def old_policy(self):
+        """Policy: Policy to be used."""
+        return self._inner_algo._old_policy
+
+    @property
+    def value_function(self):
+        """Value Funcion:."""
+        return self._inner_algo._value_function
+
 
     @property
     def max_episode_length(self):
