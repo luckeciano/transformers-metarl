@@ -20,7 +20,7 @@ class ValueFunction(abc.ABC, nn.Module):
         self.name = name
 
     @abc.abstractmethod
-    def compute_loss(self, obs, returns):
+    def compute_loss(self, obs, hidden_states, returns):
         r"""Compute mean value of loss.
 
         Args:

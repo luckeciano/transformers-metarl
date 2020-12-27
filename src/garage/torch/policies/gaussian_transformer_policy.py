@@ -4,6 +4,7 @@ from torch import nn
 import math
 import numpy as np
 from garage.torch import global_device, np_to_torch
+import torch.nn.functional as F
 
 from garage.torch.modules import GaussianMLPModule, MLPModule
 from garage.torch.policies.stochastic_policy import StochasticPolicy
@@ -73,7 +74,7 @@ class GaussianTransformerPolicy(StochasticPolicy):
 
     def __init__(self,
                  env_spec,
-                 encoding_hidden_sizes=(64,64),
+                 encoding_hidden_sizes=(64,),
                  encoding_non_linearity=None,
                  mlp_hidden_sizes=(64, 64),
                  mlp_hidden_nonlinearity=torch.tanh,
@@ -88,16 +89,15 @@ class GaussianTransformerPolicy(StochasticPolicy):
                  max_std=None,
                  std_parameterization='exp',
                  layer_normalization=False,
-                 d_model=16,
+                 d_model=128,
                  dropout=0.0,
-                 max_len=5000,
                  nhead=8,
-                 num_encoder_layers=1,
-                 num_decoder_layers=1,
-                 dim_feedforward=120,
+                 num_encoder_layers=6,
+                 num_decoder_layers=6,
+                 dim_feedforward=512,
                  activation='relu',
-                 hidden_horizon=5,
-                 obs_horizon=100,
+                 hidden_horizon=4,
+                 obs_horizon=75,
                  name='GaussianTransformerPolicy'):
         super().__init__(env_spec, name)
         self._obs_dim = env_spec.observation_space.flat_dim
@@ -119,11 +119,18 @@ class GaussianTransformerPolicy(StochasticPolicy):
             layer_normalization=layer_normalization
         )
 
-        self._positional_encoding = PositionalEncoding(
+        self._wm_positional_encoding = PositionalEncoding(
             d_model=d_model,
             dropout=dropout,
-            max_len=max_len
+            max_len=self._obs_horizon,
         )
+
+        self._em_positional_encoding = PositionalEncoding(
+            d_model=d_model,
+            dropout=dropout,
+            max_len=self._hidden_horizon,
+        )
+
         self._transformer_module = nn.Transformer(
             d_model=d_model,
             nhead=nhead,
@@ -156,6 +163,7 @@ class GaussianTransformerPolicy(StochasticPolicy):
         self._prev_actions = None
         self._episodic_memory_counter = None
         self._new_episode = None
+        self._step = None
 
     def forward(self, observations, hidden_states):
         """Compute the action distributions from the observations.
@@ -170,35 +178,44 @@ class GaussianTransformerPolicy(StochasticPolicy):
             torch.Tensor: Hidden States
 
         """
+        policy_head_input, transformer_output = self.compute_memories(observations, hidden_states)
+        dist = self._policy_head(policy_head_input) 
+        return (dist, dict(mean=dist.mean, log_std=(dist.variance**.5).log()), transformer_output)
+
+    def compute_memories(self, observations, hidden_states):
         # Get original shapes and reshape tensors to have a single batch dimension
         obs_shape = list(observations.shape)
         hid_st_shape = list(hidden_states.shape)
-        batch_shape = hid_st_shape[:-2] 
+        batch_shape = hid_st_shape[:-2]
         observations = torch.reshape(observations, (-1, obs_shape[-2], obs_shape[-1]))
         hidden_states = torch.reshape(hidden_states, (-1, hid_st_shape[-2], hid_st_shape[-1])) # reducing batching for single dimension
 
         # Computing working memory as a representation from tuple (obs, act, rew)
         working_memo = self._obs_embedding(observations) #(B, S_len, output_step)
 
+        # get memory index
+        curr_em_index = self._compute_memory_index(hidden_states).unsqueeze(-1).repeat(1, hid_st_shape[-1]).unsqueeze(1)
+        curr_wm_index = self._compute_memory_index(observations).unsqueeze(-1).repeat(1, working_memo.shape[-1]).unsqueeze(1)
+
         # Get current working memory as the most recent in the tensor
-        curr_working_memo = working_memo[:, -1:, :] 
+        curr_working_memo = torch.gather(working_memo, dim=1, index=curr_wm_index)
 
         working_memo = working_memo.permute(1, 0, 2) #Transformer module inputs (S_len, B, output_step)
-        wm_pos = self._positional_encoding(working_memo)
+        wm_pos = self._wm_positional_encoding(working_memo)
         hidden_states = hidden_states.permute(1, 0, 2) #Transformer module inputs (S_len, B, output_step)
-        transformer_output = self._transformer_module(wm_pos, hidden_states) #(T, B, target_output)
+        em_pos = self._em_positional_encoding(hidden_states)
+        transformer_output = self._transformer_module(wm_pos, em_pos) #(T, B, target_output)
         transformer_output = transformer_output.permute(1, 0, 2) # going back to batch first
 
         # Compute policy head input
-        last_hidden = transformer_output[:, -1:, :]
+        curr_hidden = torch.gather(transformer_output, dim=1, index=curr_em_index)
         final_shape_hidden = batch_shape + hid_st_shape[-1:] #final shape = batch shape + feature dimension
         final_shape_obs = batch_shape + [self._obs_embedding._output_dim]
-        last_hidden = torch.reshape(last_hidden, final_shape_hidden) #get just the last hidden state as input for policy head
+        curr_hidden = torch.reshape(curr_hidden, final_shape_hidden) #get just the last hidden state as input for policy head
         curr_working_memo = torch.reshape(curr_working_memo, final_shape_obs)
-
-        policy_head_input = torch.cat((curr_working_memo, last_hidden), axis=-1)
-        dist = self._policy_head(policy_head_input) 
-        return (dist, dict(mean=dist.mean, log_std=(dist.variance**.5).log()), transformer_output)
+        
+        memories = torch.cat((curr_working_memo, curr_hidden), axis=-1)
+        return memories, transformer_output
 
     def reset(self, do_resets=None):
         """Reset the policy.
@@ -228,6 +245,7 @@ class GaussianTransformerPolicy(StochasticPolicy):
         if do_resets is None:
             do_resets = np.array([True])
         self._prev_observations = np.zeros((len(do_resets), self._obs_horizon, self._obs_dim))
+        self._step = 0
         self._episodic_memory_counter += 1
         self._new_episode = True
 
@@ -274,7 +292,7 @@ class GaussianTransformerPolicy(StochasticPolicy):
         """
         observations = self._env_spec.observation_space.flatten_n(observations)
         observations = np.expand_dims(observations, axis=1)
-        self._prev_observations = np.concatenate((self._prev_observations[:, 1:, :], observations), axis=1)
+        self._update_prev_observations(observations)
         encoder_input = np_to_torch(self._prev_observations)
         decodder_input = np_to_torch(self._prev_hiddens)
         dist, info, hidden_states = self.forward(encoder_input, decodder_input)
@@ -287,12 +305,52 @@ class GaussianTransformerPolicy(StochasticPolicy):
             for (k, v) in info.items()
         }, self._prev_observations, self._prev_hiddens
 
+    def _update_prev_observations(self, observations):
+        if self._step < self._obs_horizon: # fits in memory: just keep updating the right index
+            self._prev_observations[:, self._working_memory_index(), :] = observations
+        else: # more observations than working memory length
+            self._prev_observations = np.concatenate((self._prev_observations[:, 1:, :], observations), axis=1)
+        
+        self._step += 1
+
+
     def _update_episodic_memory(self, hidden_states):
         if self._episodic_memory_counter < self._hidden_horizon: # fits in memory: just keep updating the right index
-            self._prev_hiddens[:, self._episodic_memory_counter, :] = hidden_states[:, -1, :].detach().cpu().numpy()
+            self._prev_hiddens[:, self._episodic_memory_counter, :] = hidden_states[:, self._episodic_memory_index(), :].detach().cpu().numpy()
         else: # more episodes than episodic memory length
             if self._new_episode: # remove the last episode and insert a new one
-                self._prev_hiddens = self._prev_hiddens = np.concatenate((self._prev_hiddens[:, 1:, :], hidden_states[:, -1:, :].detach().cpu().numpy()), axis=1)
+                self._prev_hiddens = self._prev_hiddens = np.concatenate((self._prev_hiddens[:, 1:, :], hidden_states[:, self._episodic_memory_index():, :].detach().cpu().numpy()), axis=1)
                 self._new_episode = False
             else: # just update the last
-                self._prev_hiddens[:, -1, :] = hidden_states[:, -1, :].detach().cpu().numpy()
+                self._prev_hiddens[:, -1, :] = hidden_states[:, self._episodic_memory_index(), :].detach().cpu().numpy()
+
+    def _compute_memory_index(self, memory):
+        zero_tensor = torch.zeros(memory.shape[-1:]).to(global_device())
+
+        mask = torch.all(torch.eq(memory, zero_tensor), dim=-1)
+        mask = mask.float().masked_fill(mask == 1, float(0.0)).masked_fill(mask == 0, float(1.0))
+
+        one_tensor = torch.ones(mask.shape[-1:]).to(global_device())
+        full_memory = torch.all(torch.eq(mask, one_tensor), dim=-1)
+        x = F.relu(torch.argmin(mask, dim=-1) - 1)
+        max_index = memory.shape[-2] - 1
+        final_index = torch.where(full_memory, max_index, x)
+        return final_index
+
+    # def _create_mask(self, input_tensor):
+    #     #Tensor of shape (B, Seq_len, E)
+    #     zero_tensor = torch.zeros(input_tensor.shape[-1:]).to(global_device())
+    #     mask = torch.all(torch.eq(input_tensor, zero_tensor), dim=-1)
+    #     mask = mask.float().masked_fill(mask == 1, float('-inf')).masked_fill(mask == 0, float(0.0))
+    #     return mask
+
+    def _episodic_memory_index(self):
+        return self._episodic_memory_counter if self._episodic_memory_counter < self._hidden_horizon else self._hidden_horizon - 1
+
+    def _working_memory_index(self):
+        return self._step if self._step < self._obs_horizon else self._obs_horizon - 1
+
+
+    @property
+    def memory_dim(self):
+        return 2*self._d_model

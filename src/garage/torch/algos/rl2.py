@@ -181,8 +181,8 @@ class RL2Worker(DefaultWorker):
             a, agent_info, aug_obs, hidden_states = self.agent.get_action(self._prev_obs) #augment_obs = obs + hidden_states
             es = self.env.step(a)
             self._observations.append(self._prev_obs)
-            self._augmented_obs.append(aug_obs)
-            self._hidden_states.append(hidden_states)
+            self._augmented_obs.append(np.copy(aug_obs))
+            self._hidden_states.append(np.copy(hidden_states))
             self._env_steps.append(es)
             for k, v in agent_info.items():
                 self._agent_infos[k].append(v)

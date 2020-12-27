@@ -154,7 +154,7 @@ class VPG(RLAlgorithm):
             ]))
         valids = eps.lengths
         with torch.no_grad():
-            baselines = self._value_function(obs)
+            baselines = self._value_function(aug_obs, hidden_states)
 
         if self._maximum_entropy:
             policy_entropies = self._compute_policy_entropy(aug_obs, hidden_states)
@@ -172,7 +172,7 @@ class VPG(RLAlgorithm):
             policy_loss_before = self._compute_loss_with_adv(
                 aug_obs_flat, hidden_st_flat, actions_flat, rewards_flat, advs_flat)
             vf_loss_before = self._value_function.compute_loss(
-                obs_flat, returns_flat)
+                aug_obs_flat, hidden_st_flat, returns_flat)
             kl_before = self._compute_kl_constraint(aug_obs, hidden_states)
 
         self._train(obs_flat, aug_obs_flat, hidden_st_flat, actions_flat, rewards_flat, returns_flat,
@@ -182,7 +182,7 @@ class VPG(RLAlgorithm):
             policy_loss_after = self._compute_loss_with_adv(
                 aug_obs, hidden_st_flat, actions_flat, rewards_flat, advs_flat)
             vf_loss_after = self._value_function.compute_loss(
-                obs_flat, returns_flat)
+                aug_obs_flat, hidden_st_flat, returns_flat)
             kl_after = self._compute_kl_constraint(aug_obs, hidden_states)
             policy_entropy = self._compute_policy_entropy(aug_obs, hidden_states)
 
@@ -247,7 +247,7 @@ class VPG(RLAlgorithm):
         for dataset in self._policy_optimizer.get_minibatch(
                 aug_obs, hidden_states, actions, rewards, advs):
             self._train_policy(*dataset)
-        for dataset in self._vf_optimizer.get_minibatch(obs, returns):
+        for dataset in self._vf_optimizer.get_minibatch(aug_obs, hidden_states, returns):
             self._train_value_function(*dataset)
 
     def _train_policy(self, obs, hidden_states, actions, rewards, advantages):
@@ -274,7 +274,7 @@ class VPG(RLAlgorithm):
 
         return loss
 
-    def _train_value_function(self, obs, returns):
+    def _train_value_function(self, obs, hidden_states, returns):
         r"""Train the value function.
 
         Args:
@@ -289,7 +289,7 @@ class VPG(RLAlgorithm):
 
         """
         self._vf_optimizer.zero_grad()
-        loss = self._value_function.compute_loss(obs, returns)
+        loss = self._value_function.compute_loss(obs, hidden_states, returns)
         loss.backward()
         self._vf_optimizer.step()
 

@@ -55,10 +55,12 @@ class GaussianMLPValueFunction(ValueFunction):
                  learn_std=True,
                  init_std=1.0,
                  layer_normalization=False,
+                 base_model=None,
                  name='GaussianMLPValueFunction'):
         super(GaussianMLPValueFunction, self).__init__(env_spec, name)
+        self._base_model = base_model
 
-        input_dim = env_spec.observation_space.flat_dim
+        input_dim = self._base_model.memory_dim if not None else env_spec.observation_space.flat_dim
         output_dim = 1
 
         self.module = GaussianMLPModule(
@@ -78,7 +80,7 @@ class GaussianMLPValueFunction(ValueFunction):
             std_parameterization='exp',
             layer_normalization=layer_normalization)
 
-    def compute_loss(self, obs, returns):
+    def compute_loss(self, obs, hidden_states, returns):
         r"""Compute mean value of loss.
 
         Args:
@@ -91,13 +93,17 @@ class GaussianMLPValueFunction(ValueFunction):
                 objective (float).
 
         """
-        dist = self.module(obs)
+        if self._base_model is not None:
+            memories, _ = self._base_model.compute_memories(obs, hidden_states)
+            dist = self.module(memories)
+        else:
+            dist = self.module(obs)
         ll = dist.log_prob(returns.reshape(-1, 1))
         loss = -ll.mean()
         return loss
 
     # pylint: disable=arguments-differ
-    def forward(self, obs):
+    def forward(self, obs, hidden_states):
         r"""Predict value based on paths.
 
         Args:
@@ -109,4 +115,7 @@ class GaussianMLPValueFunction(ValueFunction):
                 shape :math:`(P, O*)`.
 
         """
+        if self._base_model is not None:
+            memories, _ = self._base_model.compute_memories(obs, hidden_states)
+            return self.module(memories).mean.flatten(-2)
         return self.module(obs).mean.flatten(-2)
