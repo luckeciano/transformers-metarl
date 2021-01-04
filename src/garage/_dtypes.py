@@ -1100,7 +1100,7 @@ class AugmentedEpisodeBatch(EpisodeBatch):
         """Create a EpisodeBatch by concatenating EpisodeBatches.
 
         Args:
-            batches (list[EpisodeBatch]): Batches to concatenate.
+            batches (list[AugmentedEpisodeBatch]): Batches to concatenate.
 
         Returns:
             EpisodeBatch: The concatenation of the batches.

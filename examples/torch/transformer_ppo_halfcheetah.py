@@ -8,7 +8,7 @@ from garage.torch import set_gpu_mode
 from garage import wrap_experiment
 from garage.envs import GymEnv
 from garage.envs.mujoco.half_cheetah_vel_env import HalfCheetahVelEnv
-from garage.experiment import task_sampler
+from garage.experiment import task_sampler, MetaEvaluator, OnlineMetaEvaluator
 from garage.experiment.deterministic import set_seed
 from garage.sampler import LocalSampler
 from garage.trainer import Trainer
@@ -46,12 +46,27 @@ def count_parameters(model):
 @click.option('--wm_size', default=75)
 @click.option('--em_size', default=4)
 @click.option('--dim_ff', default=512)
+@click.option('--discount', default=0.99)
+@click.option('--gae_lambda', default=0.95)
+@click.option('--lr_clip_range', default=0.2)
+@click.option('--policy_lr', default=2.5e-4)
+@click.option('--vf_lr', default=2.5e-4)
+@click.option('--minibatch_size', default=64)
+@click.option('--max_opt_epochs', default=10)
+@click.option('--center_adv', default=False)
+@click.option('--positive_adv', default=False)
+@click.option('--policy_ent_coeff', default=0.02)
+@click.option('--use_softplus_entropy', default=False)
+@click.option('--stop_entropy_gradient', default=True)
+@click.option('--entropy_method', default='max')
 @click.option('--gpu_id', default=0)
 @wrap_experiment
 def transformer_ppo_halfcheetah(ctxt, seed, max_episode_length, meta_batch_size,
                         n_epochs, episode_per_task,
                         wm_embedding_hidden_size, n_heads, d_model, layers, dropout,
-                        wm_size, em_size, dim_ff, gpu_id):
+                        wm_size, em_size, dim_ff, discount, gae_lambda, lr_clip_range, policy_lr,
+                        vf_lr, minibatch_size, max_opt_epochs, center_adv, positive_adv, 
+                        policy_ent_coeff, use_softplus_entropy, stop_entropy_gradient, entropy_method, gpu_id):
     """Train PPO with HalfCheetah environment.
 
     Args:
@@ -96,22 +111,34 @@ def transformer_ppo_halfcheetah(ctxt, seed, max_episode_length, meta_batch_size,
 
     count_parameters(value_function)
 
+    # meta_evaluator = OnlineMetaEvaluator(test_task_sampler=tasks,
+    #                                     n_test_tasks=5,
+    #                                     worker_class=RL2Worker,
+    #                                     worker_args=dict(n_episodes_per_trial=5))
+
+    meta_evaluator = None
+
     algo = RL2PPO(meta_batch_size=meta_batch_size,
                     task_sampler=tasks,
                     env_spec=env_spec,
                     policy=policy,
                     value_function=value_function,
                     episodes_per_trial=episode_per_task,
-                    discount=0.99,
-                    gae_lambda=0.95,
-                    lr_clip_range=0.2,
-                    lr=2.5e-4,
-                    minibatch_size=256,
-                    max_opt_epochs=10,
-                    stop_entropy_gradient=True,
-                    entropy_method='max',
-                    policy_ent_coeff=0.02,
-                    center_adv=False)
+                    discount=discount,
+                    gae_lambda=gae_lambda,
+                    lr_clip_range=lr_clip_range,
+                    policy_lr=policy_lr,
+                    vf_lr=vf_lr,
+                    minibatch_size=minibatch_size,
+                    max_opt_epochs=max_opt_epochs,
+                    use_softplus_entropy=use_softplus_entropy,
+                    stop_entropy_gradient=stop_entropy_gradient,
+                    entropy_method=entropy_method,
+                    policy_ent_coeff=policy_ent_coeff,
+                    center_adv=center_adv,
+                    positive_adv=positive_adv,
+                    meta_evaluator=meta_evaluator,
+                    n_epochs_per_eval=10)
 
     if torch.cuda.is_available():
         set_gpu_mode(True, gpu_id)

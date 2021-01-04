@@ -65,7 +65,8 @@ class RL2PPO(RL2):
                  policy,
                  value_function,
                  episodes_per_trial,
-                 lr=2.5e-4,
+                 policy_lr=2.5e-4,
+                 vf_lr=2.5e-4,
                  max_opt_epochs=10,
                  minibatch_size=64,
                  vf_optimizer=None,
@@ -86,13 +87,13 @@ class RL2PPO(RL2):
             optimizer_args = dict()
         
         policy_optimizer = OptimizerWrapper(
-            (torch.optim.Adam, dict(lr=lr)),
+            (torch.optim.Adam, dict(lr=policy_lr)),
             policy,
             max_optimization_epochs=max_opt_epochs,
             minibatch_size=minibatch_size)
             
         vf_optimizer = OptimizerWrapper(
-            (torch.optim.Adam, dict(lr=lr)),
+            (torch.optim.Adam, dict(lr=vf_lr)),
             value_function,
             max_optimization_epochs=max_opt_epochs,
             minibatch_size=minibatch_size)

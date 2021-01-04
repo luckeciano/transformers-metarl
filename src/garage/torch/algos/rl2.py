@@ -288,6 +288,9 @@ class NoResetPolicy:
         """
         return self._policy.get_action(obs)
 
+    def reset_observations(self):
+        self._policy.reset_observations()
+
     def get_param_values(self):
         """Return values of params.
 
@@ -323,6 +326,9 @@ class RL2AdaptedPolicy:
     def reset(self):
         """Environment reset function."""
         self._policy._prev_hiddens = self._initial_hiddens
+
+    def reset_observations(self):
+        self._policy.reset_observations()
 
     def get_action(self, obs):
         """Get a single action from this policy for the input observation.
@@ -399,7 +405,7 @@ class RL2(MetaRLAlgorithm, abc.ABC):
         self._env_spec = env_spec
         _inner_env_spec = EnvSpec(
             env_spec.observation_space, env_spec.action_space,
-            episodes_per_trial * env_spec.max_episode_length)
+            episodes_per_trial * env_spec.max_episode_length) #TODO: Is this ok? 
         self._inner_algo = PPO(env_spec=_inner_env_spec, **inner_algo_args)
         self._rl2_max_episode_length = self._env_spec.max_episode_length
         self._n_epochs_per_eval = n_epochs_per_eval
@@ -508,27 +514,27 @@ class RL2(MetaRLAlgorithm, abc.ABC):
             ValueError: If 'batch_idx' is not found.
 
         """
-        # concatenated_paths = []
+        concatenated_paths = []
 
-        # paths_by_task = collections.defaultdict(list)
-        # for episode in episodes.split():
-        #     if hasattr(episode, 'batch_idx'):
-        #         paths_by_task[episode.batch_idx[0]].append(episode)
-        #     elif 'batch_idx' in episode.agent_infos:
-        #         paths_by_task[episode.agent_infos['batch_idx'][0]].append(
-        #             episode)
-        #     else:
-        #         raise ValueError(
-        #             'Batch idx is required for RL2 but not found, '
-        #             'Make sure to use garage.tf.algos.rl2.RL2Worker '
-        #             'for sampling')
+        paths_by_task = defaultdict(list)
+        for episode in episodes.split():
+            if hasattr(episode, 'batch_idx'):
+                paths_by_task[episode.batch_idx[0]].append(episode)
+            elif 'batch_idx' in episode.agent_infos:
+                paths_by_task[episode.agent_infos['batch_idx'][0]].append(
+                    episode)
+            else:
+                raise ValueError(
+                    'Batch idx is required for RL2 but not found, '
+                    'Make sure to use garage.tf.algos.rl2.RL2Worker '
+                    'for sampling')
 
-        # # all path in paths_by_task[i] are sampled from task[i]
-        # for episode_list in paths_by_task.values():
-        #     concatenated_path = self._concatenate_episodes(episode_list)
-        #     concatenated_paths.append(concatenated_path)
+        # all path in paths_by_task[i] are sampled from task[i]
+        for episode_list in paths_by_task.values():
+            concatenated_path = self._concatenate_episodes(episode_list)
+            concatenated_paths.append(concatenated_path)
 
-        # concatenated_episodes = EpisodeBatch.concatenate(*concatenated_paths)
+        concatenated_episodes = AugmentedEpisodeBatch.concatenate(*concatenated_paths)
 
         name_map = None
         if hasattr(self._task_sampler, '_envs') and hasattr(
@@ -543,7 +549,7 @@ class RL2(MetaRLAlgorithm, abc.ABC):
 
         average_return = np.mean(undiscounted_returns)
 
-        return episodes, average_return
+        return concatenated_episodes, average_return
 
     def _concatenate_episodes(self, episode_list):
         """Concatenate episodes.
@@ -579,11 +585,15 @@ class RL2(MetaRLAlgorithm, abc.ABC):
             for ep in episode_list
         ])
 
-        return EpisodeBatch(
+        return AugmentedEpisodeBatch(
             env_spec=episode_list[0].env_spec,
             episode_infos=episode_infos,
             observations=np.concatenate(
                 [ep.observations for ep in episode_list]),
+            augmented_observations=np.concatenate(
+                [ep.augmented_observations for ep in episode_list]),
+            hidden_states=np.concatenate(
+                [ep.hidden_states for ep in episode_list]),
             last_observations=episode_list[-1].last_observations,
             actions=actions,
             rewards=np.concatenate([ep.rewards for ep in episode_list]),
