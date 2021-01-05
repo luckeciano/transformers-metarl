@@ -38,7 +38,7 @@ entropy_method_list = ['max', 'regularized', 'no_entropy']
 
 def trmrl_cmd(wm_emb_hidden_size, nheads_dmodel, layers, dropout_rate, wm_length, em_length, meta_batch_size, episodes_per_task, \
         discount, gae_lambda, lr_clip_range, lr, vf_lr, minibatch_size, max_opt_epochs, center_adv, positive_adv, policy_ent_coeff, \
-        use_softplus_entropy, stop_entropy_gradient, entropy_method):
+        use_softplus_entropy, stop_entropy_gradient, entropy_method, gpu_id):
     cmd = "./transformer_ppo_halfcheetah.py --wm_embedding_hidden_size=" + str(wm_emb_hidden_size) + \
     " --n_heads=" + str(nheads_dmodel[0]) + " --d_model=" + str(nheads_dmodel[1]) + " --layers=" + str(layers) + \
     " --dropout=" + str(dropout_rate) + " --wm_size=" + str(wm_length) + " --em_size=" + str(em_length) + " --dim_ff=" + str(4 * nheads_dmodel[1]) + \
@@ -46,7 +46,7 @@ def trmrl_cmd(wm_emb_hidden_size, nheads_dmodel, layers, dropout_rate, wm_length
     " --gae_lambda=" + str(gae_lambda) + " --lr_clip_range=" + str(lr_clip_range) + " --policy_lr=" + str(lr) + " --vf_lr=" + str(vf_lr) + \
     " --minibatch_size=" + str(minibatch_size) + " --max_opt_epochs=" + str(max_opt_epochs) + " --center_adv=" + str(center_adv) + \
     " --positive_adv=" + str(positive_adv) + " --policy_ent_coeff=" + str(policy_ent_coeff) + " --use_softplus_entropy=" + str(use_softplus_entropy) + \
-    " --stop_entropy_gradient=" + str(stop_entropy_gradient) + " --entropy_method=" + str(entropy_method)
+    " --stop_entropy_gradient=" + str(stop_entropy_gradient) + " --entropy_method=" + str(entropy_method) + " --gpu_id=" + str(gpu_id)
 
     print(cmd)
 
@@ -86,7 +86,7 @@ def run_search(gpu_id):
                 random.choice(dropout), random.choice(wm_size), random.choice(em_size), random.choice(meta_batch_size_list), random.choice(episodes_per_task_list), \
                 random.choice(discount_list), random.choice(gae_lambda_list), random.choice(lr_clip_range_list), random.choice(lr_list), random.choice(vf_lr_list), \
                 random.choice(minibatch_size_list), random.choice(max_opt_epochs_list), random.choice(center_adv_list), random.choice(positive_adv_list),\
-                random.choice(policy_ent_coeff_list), random.choice(use_softplus_entropy_list), random.choice(stop_entropy_gradient_list), random.choice(entropy_method_list))
+                random.choice(policy_ent_coeff_list), random.choice(use_softplus_entropy_list), random.choice(stop_entropy_gradient_list), random.choice(entropy_method_list), gpu_id)
             p = subprocess.Popen(shlex.split(cmd))
             time.sleep(10)
             process_list.append(p)
