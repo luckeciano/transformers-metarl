@@ -36,7 +36,7 @@ def count_parameters(model):
 @click.option('--seed', default=1)
 @click.option('--max_episode_length', default=200)
 @click.option('--meta_batch_size', default=5)
-@click.option('--n_epochs', default=1000)
+@click.option('--n_epochs', default=1000000)
 @click.option('--episode_per_task', default=4)
 @click.option('--wm_embedding_hidden_size', default=64)
 @click.option('--n_heads', default=8)
