@@ -112,7 +112,7 @@ def transformer_ppo_halfcheetah(ctxt, seed, max_episode_length, meta_batch_size,
     count_parameters(value_function)
 
     meta_evaluator = OnlineMetaEvaluator(test_task_sampler=tasks,
-                                        n_test_tasks=25,
+                                        n_test_tasks=20,
                                         worker_class=RL2Worker,
                                         worker_args=dict(n_episodes_per_trial=1))
     
@@ -137,7 +137,7 @@ def transformer_ppo_halfcheetah(ctxt, seed, max_episode_length, meta_batch_size,
                     center_adv=center_adv,
                     positive_adv=positive_adv,
                     meta_evaluator=meta_evaluator,
-                    n_epochs_per_eval=10)
+                    n_epochs_per_eval=15)
 
     if torch.cuda.is_available():
         set_gpu_mode(True, gpu_id)
