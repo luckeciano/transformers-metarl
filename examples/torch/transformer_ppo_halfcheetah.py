@@ -111,12 +111,11 @@ def transformer_ppo_halfcheetah(ctxt, seed, max_episode_length, meta_batch_size,
 
     count_parameters(value_function)
 
-    # meta_evaluator = OnlineMetaEvaluator(test_task_sampler=tasks,
-    #                                     n_test_tasks=5,
-    #                                     worker_class=RL2Worker,
-    #                                     worker_args=dict(n_episodes_per_trial=5))
-
-    meta_evaluator = None
+    meta_evaluator = OnlineMetaEvaluator(test_task_sampler=tasks,
+                                        n_test_tasks=25,
+                                        worker_class=RL2Worker,
+                                        worker_args=dict(n_episodes_per_trial=1))
+    
 
     algo = RL2PPO(meta_batch_size=meta_batch_size,
                     task_sampler=tasks,
