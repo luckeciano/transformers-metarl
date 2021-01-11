@@ -16,17 +16,17 @@ heads_dmodel = [(2, 1024), (2, 512), (2, 256), (2, 64), (2, 32), (2, 16),
     (32, 64), (32, 32)]
 
 encoder_decoder_layers = [1, 2, 3, 4]
-dropout = [0.0, 0.1, 0.25, 0.5, 0.8]
+dropout = [0.0] #, 0.1, 0.25, 0.5, 0.8]
 wm_size = [1, 5, 25, 50] #, 75, 100]
 em_size = [1, 2, 3, 4]
 
 meta_batch_size_list = [1, 5, 10, 20]
-episodes_per_task_list = [1, 2, 4, 10]
-discount_list = [0.95, 0.99, 0.999, 0.995]
+episodes_per_task_list = [1, 2, 4]
+discount_list = [0.99, 0.999]
 gae_lambda_list = [0.8, 0.9, 0.95, 0.99]
 lr_clip_range_list =  [0.1, 0.2]
 lr_list = [1e-3, 2.5e-4, 7e-5]
-vf_lr_list = [1e-2, 1e-3, 2.5e-4, 7e-5	]
+vf_lr_list = [1e-2, 1e-3, 2.5e-4, 7e-5]
 minibatch_size_list = [16, 32, 64, 128, 256, 1024]
 max_opt_epochs_list = [1, 5, 10, 20, 50]
 center_adv_list = [True, False]
@@ -57,7 +57,7 @@ def trmrl_cmd(wm_emb_hidden_size, nheads_dmodel, layers, dropout_rate, wm_length
 def run_search(gpu_id):
     print("GPU ID: " + str(gpu_id))
     process_list = []
-    MAX_RUNNING_PROCESSES = 2
+    MAX_RUNNING_PROCESSES = 4
     while True:
         print("New iteration. Current number of processes in list: " + str(len(process_list)))
         rm_p = []

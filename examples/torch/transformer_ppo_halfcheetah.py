@@ -35,23 +35,23 @@ def count_parameters(model):
 @click.command()
 @click.option('--seed', default=1)
 @click.option('--max_episode_length', default=200)
-@click.option('--meta_batch_size', default=5)
+@click.option('--meta_batch_size', default=10)
 @click.option('--n_epochs', default=1000000)
 @click.option('--episode_per_task', default=4)
 @click.option('--wm_embedding_hidden_size', default=64)
-@click.option('--n_heads', default=8)
-@click.option('--d_model', default=128)
-@click.option('--layers', default=2)
+@click.option('--n_heads', default=4)
+@click.option('--d_model', default=16)
+@click.option('--layers', default=1)
 @click.option('--dropout', default=0.0)
-@click.option('--wm_size', default=75)
+@click.option('--wm_size', default=5)
 @click.option('--em_size', default=4)
-@click.option('--dim_ff', default=512)
+@click.option('--dim_ff', default=64)
 @click.option('--discount', default=0.99)
 @click.option('--gae_lambda', default=0.95)
 @click.option('--lr_clip_range', default=0.2)
 @click.option('--policy_lr', default=2.5e-4)
 @click.option('--vf_lr', default=2.5e-4)
-@click.option('--minibatch_size', default=64)
+@click.option('--minibatch_size', default=32)
 @click.option('--max_opt_epochs', default=10)
 @click.option('--center_adv', default=False)
 @click.option('--positive_adv', default=False)
@@ -90,6 +90,7 @@ def transformer_ppo_halfcheetah(ctxt, seed, max_episode_length, meta_batch_size,
     env_spec = RL2Env(
         GymEnv(HalfCheetahVelEnv(),
                 max_episode_length=max_episode_length)).spec
+                
     policy = GaussianTransformerPolicy(name='policy',
                                 env_spec=env_spec,
                                 encoding_hidden_sizes=(wm_embedding_hidden_size,),
@@ -115,7 +116,7 @@ def transformer_ppo_halfcheetah(ctxt, seed, max_episode_length, meta_batch_size,
                                         n_test_tasks=20,
                                         worker_class=RL2Worker,
                                         worker_args=dict(n_episodes_per_trial=1))
-    
+    #meta_evaluator = None
 
     algo = RL2PPO(meta_batch_size=meta_batch_size,
                     task_sampler=tasks,
