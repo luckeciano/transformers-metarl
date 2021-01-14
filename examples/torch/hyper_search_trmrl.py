@@ -8,16 +8,17 @@ import random
 import click
 import shlex
 
-wm_embedding_hidden_size = [64, 128, 256] #, 512]
-heads_dmodel = [(2, 1024), (2, 512), (2, 256), (2, 64), (2, 32), (2, 16),
-    (4, 128), (4, 64), (4, 32), (4, 16),
-    (8, 128), (8, 64), (8, 32), (8, 16), (8, 8),
-    (16, 64), (16, 32),
+wm_embedding_hidden_size = [8, 32, 64, 128, 256] #, 512]
+heads_dmodel = [(1, 1), (1, 4), (1, 16),(1, 32), (1, 64),
+    (2, 2), (2, 4), (2, 8), (2, 64), (2, 32), (2, 16),
+    (4, 64), (4, 32), (4, 16), (4, 8), (4, 4),
+    (8, 64), (8, 32), (8, 16), (8, 8),
+    (16, 64), (16, 32), (16, 16),
     (32, 64), (32, 32)]
 
 encoder_decoder_layers = [1, 2, 3, 4]
 dropout = [0.0] #, 0.1, 0.25, 0.5, 0.8]
-wm_size = [1, 5, 25, 50] #, 75, 100]
+wm_size = [5, 25, 50, 75, 100]
 em_size = [1, 2, 3, 4]
 
 meta_batch_size_list = [1, 5, 10, 20]
@@ -26,7 +27,7 @@ discount_list = [0.99, 0.999]
 gae_lambda_list = [0.8, 0.9, 0.95, 0.99]
 lr_clip_range_list =  [0.1, 0.2]
 lr_list = [1e-3, 2.5e-4, 7e-5]
-vf_lr_list = [1e-2, 1e-3, 2.5e-4, 7e-5]
+vf_lr_list = [1e-3, 2.5e-4, 7e-5]
 minibatch_size_list = [16, 32, 64, 128, 256, 1024]
 max_opt_epochs_list = [1, 5, 10, 20, 50]
 center_adv_list = [True, False]
