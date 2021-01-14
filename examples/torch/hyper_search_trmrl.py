@@ -17,7 +17,7 @@ heads_dmodel = [(1, 1), (1, 4), (1, 16),(1, 32), (1, 64),
     (32, 64), (32, 32)]
 
 encoder_decoder_layers = [1, 2, 3, 4]
-dropout = [0.0] #, 0.1, 0.25, 0.5, 0.8]
+dropout = [0.0, 0.1, 0.25, 0.5] #0.8]
 wm_size = [5, 25, 50, 75, 100]
 em_size = [1, 2, 3, 4]
 
@@ -58,7 +58,7 @@ def trmrl_cmd(wm_emb_hidden_size, nheads_dmodel, layers, dropout_rate, wm_length
 def run_search(gpu_id):
     print("GPU ID: " + str(gpu_id))
     process_list = []
-    MAX_RUNNING_PROCESSES = 4
+    MAX_RUNNING_PROCESSES = 10
     while True:
         print("New iteration. Current number of processes in list: " + str(len(process_list)))
         rm_p = []
@@ -70,7 +70,7 @@ def run_search(gpu_id):
                 try:
                     x = psutil.Process(p.pid)
                     start_time = datetime.datetime.fromtimestamp(x.create_time())
-                    allowed_time = start_time + datetime.timedelta(seconds=9000)
+                    allowed_time = start_time + datetime.timedelta(seconds=12 * 3600)
                     now = datetime.datetime.now()
                     if now > allowed_time:
                         print("Killing process " + str(p.pid) + " because it reached max execution time.")
