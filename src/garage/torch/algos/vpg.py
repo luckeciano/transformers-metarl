@@ -153,8 +153,10 @@ class VPG(RLAlgorithm):
                 for reward in eps.padded_rewards
             ]))
         valids = eps.lengths
+
+        vf_obs_input = aug_obs if self._value_function.shared_network() else obs
         with torch.no_grad():
-            baselines = self._value_function(aug_obs, hidden_states)
+            baselines = self._value_function(vf_obs_input, hidden_states)
 
         if self._maximum_entropy:
             policy_entropies = self._compute_policy_entropy(aug_obs, hidden_states)
@@ -168,11 +170,12 @@ class VPG(RLAlgorithm):
         returns_flat = torch.cat(filter_valids(returns, valids))
         advs_flat = self._compute_advantage(rewards, valids, baselines)
 
+        vf_obs_input_flat = aug_obs_flat if self._value_function.shared_network() else obs_flat
         with torch.no_grad():
             policy_loss_before = self._compute_loss_with_adv(
                 aug_obs_flat, hidden_st_flat, actions_flat, rewards_flat, advs_flat)
             vf_loss_before = self._value_function.compute_loss(
-                aug_obs_flat, hidden_st_flat, returns_flat)
+                vf_obs_input_flat, hidden_st_flat, returns_flat)
             kl_before = self._compute_kl_constraint(aug_obs, hidden_states)
 
         self._train(obs_flat, aug_obs_flat, hidden_st_flat, actions_flat, rewards_flat, returns_flat,
@@ -182,7 +185,7 @@ class VPG(RLAlgorithm):
             policy_loss_after = self._compute_loss_with_adv(
                 aug_obs, hidden_st_flat, actions_flat, rewards_flat, advs_flat)
             vf_loss_after = self._value_function.compute_loss(
-                aug_obs_flat, hidden_st_flat, returns_flat)
+                vf_obs_input_flat, hidden_st_flat, returns_flat)
             kl_after = self._compute_kl_constraint(aug_obs, hidden_states)
             policy_entropy = self._compute_policy_entropy(aug_obs, hidden_states)
 
@@ -247,7 +250,9 @@ class VPG(RLAlgorithm):
         for dataset in self._policy_optimizer.get_minibatch(
                 aug_obs, hidden_states, actions, rewards, advs):
             self._train_policy(*dataset)
-        for dataset in self._vf_optimizer.get_minibatch(aug_obs, hidden_states, returns):
+        
+        vf_obs_input = aug_obs if self._value_function.shared_network() else obs
+        for dataset in self._vf_optimizer.get_minibatch(vf_obs_input, hidden_states, returns):
             self._train_value_function(*dataset)
 
     def _train_policy(self, obs, hidden_states, actions, rewards, advantages):

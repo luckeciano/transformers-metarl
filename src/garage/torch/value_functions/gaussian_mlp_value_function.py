@@ -60,7 +60,7 @@ class GaussianMLPValueFunction(ValueFunction):
         super(GaussianMLPValueFunction, self).__init__(env_spec, name)
         self._base_model = base_model
 
-        input_dim = self._base_model.memory_dim if not None else env_spec.observation_space.flat_dim
+        input_dim = self._base_model.memory_dim if self.shared_network() else env_spec.observation_space.flat_dim
         output_dim = 1
 
         self.module = GaussianMLPModule(
@@ -119,3 +119,6 @@ class GaussianMLPValueFunction(ValueFunction):
             memories, _ = self._base_model.compute_memories(obs, hidden_states)
             return self.module(memories).mean.flatten(-2)
         return self.module(obs).mean.flatten(-2)
+
+    def shared_network(self):
+        return self._base_model is not None

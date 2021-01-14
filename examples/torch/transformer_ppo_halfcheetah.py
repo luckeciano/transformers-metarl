@@ -59,6 +59,7 @@ def count_parameters(model):
 @click.option('--use_softplus_entropy', default=False)
 @click.option('--stop_entropy_gradient', default=True)
 @click.option('--entropy_method', default='max')
+@click.option('--share_network', default=False)
 @click.option('--gpu_id', default=0)
 @wrap_experiment
 def transformer_ppo_halfcheetah(ctxt, seed, max_episode_length, meta_batch_size,
@@ -66,7 +67,7 @@ def transformer_ppo_halfcheetah(ctxt, seed, max_episode_length, meta_batch_size,
                         wm_embedding_hidden_size, n_heads, d_model, layers, dropout,
                         wm_size, em_size, dim_ff, discount, gae_lambda, lr_clip_range, policy_lr,
                         vf_lr, minibatch_size, max_opt_epochs, center_adv, positive_adv, 
-                        policy_ent_coeff, use_softplus_entropy, stop_entropy_gradient, entropy_method, gpu_id):
+                        policy_ent_coeff, use_softplus_entropy, stop_entropy_gradient, entropy_method, share_network, gpu_id):
     """Train PPO with HalfCheetah environment.
 
     Args:
@@ -102,15 +103,17 @@ def transformer_ppo_halfcheetah(ctxt, seed, max_episode_length, meta_batch_size,
                                 obs_horizon=wm_size,
                                 hidden_horizon=em_size,
                                 dim_feedforward=dim_ff)
-    count_parameters(policy)
+    # count_parameters(policy)
+
+    base_model = policy if share_network else None
 
     value_function = GaussianMLPValueFunction(env_spec=env_spec,
-                                              base_model=policy,
+                                              base_model=base_model,
                                               hidden_sizes=(64, 64),
                                               hidden_nonlinearity=torch.tanh,
                                               output_nonlinearity=None)
 
-    count_parameters(value_function)
+    # count_parameters(value_function)
 
     meta_evaluator = OnlineMetaEvaluator(test_task_sampler=tasks,
                                         n_test_tasks=20,

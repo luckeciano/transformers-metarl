@@ -92,7 +92,7 @@ def rollout(env,
     )
 
 @click.command()
-@click.option('--path', default='/data/transformer-metarl/garage/examples/torch/data/local/experiment/transformer_ppo_halfcheetah_66')
+@click.option('--path', default='/data/transformer-metarl/garage/examples/torch/data/local/experiment/transformer_ppo_halfcheetah_69')
 def transformer_ppo_halfcheetah(path):
     """Eval policy with HalfCheetah environment.
     """
@@ -115,7 +115,7 @@ def transformer_ppo_halfcheetah(path):
     for velocity in np.arange(0.0, 2.01, 0.5):
         task = {'velocity': velocity}
         env = RL2Env(GymEnv(HalfCheetahVelEnv(task), max_episode_length=200))
-        eps = rollout(env, policy, animated=True, deterministic=False)
+        eps = rollout(env, policy, animated=True, deterministic=True)
         print(sum(eps['rewards']))
         #env.visualize()
 
