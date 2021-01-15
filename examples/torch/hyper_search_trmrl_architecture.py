@@ -28,9 +28,7 @@ def trmrl_cmd(wm_emb_hidden_size, nheads_dmodel, layers, dropout_rate, wm_length
     " --dropout=" + str(dropout_rate) + " --wm_size=" + str(wm_length) + " --em_size=" + str(em_length) + " --dim_ff=" + str(4 * nheads_dmodel[1]) + \
     " --meta_batch_size=" + str(10) + " --episode_per_task=" + str(4) + " --discount=" + str(0.99) + \
     " --gae_lambda=" + str(0.95) + " --lr_clip_range=" + str(0.2) + " --policy_lr=" + str(0.00025) + " --vf_lr=" + str(0.00025) + \
-    " --minibatch_size=" + str(32) + " --max_opt_epochs=" + str(10) + " --center_adv=" + str(False) + \
-    " --positive_adv=" + str(False) + " --policy_ent_coeff=" + str(0.02) + " --use_softplus_entropy=" + str(False) + \
-    " --stop_entropy_gradient=" + str(True) + " --entropy_method=" + "max" + " --gpu_id=" + str(gpu_id)
+    " --minibatch_size=" + str(32) + " --max_opt_epochs=" + str(10) + " --gpu_id=" + str(gpu_id)
 
     print(cmd)
 
