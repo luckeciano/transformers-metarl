@@ -38,14 +38,14 @@ def count_parameters(model):
 @click.option('--meta_batch_size', default=10)
 @click.option('--n_epochs', default=1000000)
 @click.option('--episode_per_task', default=4)
-@click.option('--wm_embedding_hidden_size', default=64)
-@click.option('--n_heads', default=4)
-@click.option('--d_model', default=16)
+@click.option('--wm_embedding_hidden_size', default=5)
+@click.option('--n_heads', default=1)
+@click.option('--d_model', default=1)
 @click.option('--layers', default=1)
 @click.option('--dropout', default=0.0)
-@click.option('--wm_size', default=5)
+@click.option('--wm_size', default=100)
 @click.option('--em_size', default=4)
-@click.option('--dim_ff', default=64)
+@click.option('--dim_ff', default=4)
 @click.option('--discount', default=0.99)
 @click.option('--gae_lambda', default=0.95)
 @click.option('--lr_clip_range', default=0.2)
@@ -116,9 +116,9 @@ def transformer_ppo_halfcheetah(ctxt, seed, max_episode_length, meta_batch_size,
     # count_parameters(value_function)
 
     meta_evaluator = OnlineMetaEvaluator(test_task_sampler=tasks,
-                                        n_test_tasks=20,
+                                        n_test_tasks=5,
                                         worker_class=RL2Worker,
-                                        worker_args=dict(n_episodes_per_trial=1))
+                                        worker_args=dict(n_episodes_per_trial=3))
     #meta_evaluator = None
 
     algo = RL2PPO(meta_batch_size=meta_batch_size,
