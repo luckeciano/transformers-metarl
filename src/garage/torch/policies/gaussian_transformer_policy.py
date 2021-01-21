@@ -350,6 +350,51 @@ class GaussianTransformerPolicy(StochasticPolicy):
     def _working_memory_index(self):
         return self._step if self._step < self._obs_horizon else self._obs_horizon - 1
 
+    def compute_current_embeddings(self):
+        # return obs_embeddings, wm_embedding (encoder output), and em_embedding (decoder output)
+        # TODO: refactor policy to reuse the code of compute_memories
+        # call this method after get action
+        observations = np_to_torch(self._prev_observations)
+        hidden_states = np_to_torch(self._prev_hiddens)
+
+        # Get original shapes and reshape tensors to have a single batch dimension
+        obs_shape = list(observations.shape)
+        hid_st_shape = list(hidden_states.shape)
+        batch_shape = hid_st_shape[:-2]
+        observations = torch.reshape(observations, (-1, obs_shape[-2], obs_shape[-1]))
+        hidden_states = torch.reshape(hidden_states, (-1, hid_st_shape[-2], hid_st_shape[-1])) # reducing batching for single dimension
+
+        # Computing working memory as a representation from tuple (obs, act, rew)
+        working_memo = self._obs_embedding(observations) #(B, S_len, output_step)
+
+        # get memory index
+        curr_em_index = self._compute_memory_index(hidden_states).unsqueeze(-1).repeat(1, hid_st_shape[-1]).unsqueeze(1)
+        curr_wm_index = self._compute_memory_index(observations).unsqueeze(-1).repeat(1, working_memo.shape[-1]).unsqueeze(1)
+
+        # Get current working memory as the most recent in the tensor
+        curr_working_memo = torch.gather(working_memo, dim=1, index=curr_wm_index)
+
+        working_memo = working_memo.permute(1, 0, 2) #Transformer module inputs (S_len, B, output_step)
+        wm_pos = self._wm_positional_encoding(working_memo)
+        hidden_states = hidden_states.permute(1, 0, 2) #Transformer module inputs (S_len, B, output_step)
+        em_pos = self._em_positional_encoding(hidden_states)
+        transformer_output = self._transformer_module(wm_pos, em_pos) #(T, B, target_output)
+        transformer_output = transformer_output.permute(1, 0, 2) # going back to batch first
+
+        encoder_output = self._transformer_module.encoder(wm_pos).permute(1, 0, 2)
+        current_wm_embedding = torch.gather(encoder_output, dim=1, index=curr_wm_index)
+
+        # Compute policy head input
+        curr_hidden = torch.gather(transformer_output, dim=1, index=curr_em_index)
+        final_shape_hidden = batch_shape + hid_st_shape[-1:] #final shape = batch shape + feature dimension
+        final_shape_obs = batch_shape + [self._obs_embedding._output_dim]
+        curr_hidden = torch.reshape(curr_hidden, final_shape_hidden) #get just the last hidden state as input for policy head
+        curr_working_memo = torch.reshape(curr_working_memo, final_shape_obs)
+        current_wm_embedding = torch.reshape(current_wm_embedding, final_shape_obs)
+        
+        return curr_working_memo, current_wm_embedding, curr_hidden
+        
+
 
     @property
     def memory_dim(self):

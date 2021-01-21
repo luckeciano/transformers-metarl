@@ -70,6 +70,10 @@ def rollout(env,
         if pause_per_frame is not None:
             time.sleep(pause_per_frame)
         a, agent_info, _, _ = agent.get_action(last_obs)
+        obs_emb, wm_emb, em_emb = agent.compute_current_embeddings()
+        agent_info["obs_emb"] = obs_emb
+        agent_info["wm_emb"] = wm_emb
+        agent_info["em_emb"] = em_emb
         if deterministic and 'mean' in agent_info:
             a = agent_info['mean']
         es = env.step(a)
@@ -92,7 +96,7 @@ def rollout(env,
     )
 
 @click.command()
-@click.option('--path', default='/data/transformer-metarl/garage/examples/torch/data/local/experiment/transformer_ppo_halfcheetah_69')
+@click.option('--path', default='/data/transformer-metarl/garage/examples/torch/data/local/experiment/transformer_ppo_halfcheetah_6')
 def transformer_ppo_halfcheetah(path):
     """Eval policy with HalfCheetah environment.
     """
@@ -111,12 +115,26 @@ def transformer_ppo_halfcheetah(path):
     else:
         set_gpu_mode(False)
     # algo.to()
-
+    obs_emb_file = open("embeddings/obs_embeddings.tsv", "ab")
+    wm_emb_file = open("embeddings/wm_embeddings.tsv", "ab")
+    em_emb_file = open("embeddings/em_embeddings.tsv", "ab")
+    metadata_file = open("embeddings/metadata.tsv", "ab")
     for velocity in np.arange(0.0, 2.01, 0.5):
         task = {'velocity': velocity}
         env = RL2Env(GymEnv(HalfCheetahVelEnv(task), max_episode_length=200))
-        eps = rollout(env, policy, animated=True, deterministic=True)
+        eps = rollout(env, policy, animated=True, deterministic=False)
+        t = 0
+        for obs_emb, wm_emb, em_emb in zip(eps["agent_infos"]["obs_emb"], eps["agent_infos"]["wm_emb"], eps["agent_infos"]["em_emb"]):
+            np.savetxt(obs_emb_file, np.array([0.0, obs_emb.detach().cpu().numpy()])[np.newaxis], delimiter='\t')
+            np.savetxt(wm_emb_file, np.array([0.0, wm_emb.detach().cpu().numpy()])[np.newaxis], delimiter='\t')
+            np.savetxt(em_emb_file, np.array([0.0, em_emb.detach().cpu().numpy()])[np.newaxis], delimiter='\t')
+            np.savetxt(metadata_file, np.array([t, velocity])[np.newaxis], delimiter='\t')
+            t = t + 1
         print(sum(eps['rewards']))
+    obs_emb_file.close()
+    wm_emb_file.close()
+    em_emb_file.close()
+    metadata_file.close()
         #env.visualize()
 
 transformer_ppo_halfcheetah()
