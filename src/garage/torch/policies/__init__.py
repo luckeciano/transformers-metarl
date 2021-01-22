@@ -12,6 +12,7 @@ from garage.torch.policies.tanh_gaussian_mlp_policy import (
     TanhGaussianMLPPolicy)
 
 from garage.torch.policies.gaussian_transformer_policy import GaussianTransformerPolicy
+from garage.torch.policies.gaussian_transformer_encoder_policy import GaussianTransformerEncoderPolicy
 
 __all__ = [
     'CategoricalCNNPolicy',
@@ -21,5 +22,6 @@ __all__ = [
     'Policy',
     'TanhGaussianMLPPolicy',
     'ContextConditionedPolicy',
-    'GaussianTransformerPolicy'
+    'GaussianTransformerPolicy',
+    'GaussianTransformerEncoderPolicy'
 ]

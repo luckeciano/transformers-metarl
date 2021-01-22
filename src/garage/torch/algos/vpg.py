@@ -183,7 +183,7 @@ class VPG(RLAlgorithm):
 
         with torch.no_grad():
             policy_loss_after = self._compute_loss_with_adv(
-                aug_obs, hidden_st_flat, actions_flat, rewards_flat, advs_flat)
+                aug_obs_flat, hidden_st_flat, actions_flat, rewards_flat, advs_flat)
             vf_loss_after = self._value_function.compute_loss(
                 vf_obs_input_flat, hidden_st_flat, returns_flat)
             kl_after = self._compute_kl_constraint(aug_obs, hidden_states)

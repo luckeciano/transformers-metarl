@@ -96,7 +96,7 @@ def rollout(env,
     )
 
 @click.command()
-@click.option('--path', default='/data/transformer-metarl/garage/examples/torch/data/local/experiment/transformer_ppo_halfcheetah_6')
+@click.option('--path', default='/data/transformer-metarl/garage/examples/torch/data/local/experiment/transformer_ppo_halfcheetah_11')
 def transformer_ppo_halfcheetah(path):
     """Eval policy with HalfCheetah environment.
     """
@@ -122,12 +122,12 @@ def transformer_ppo_halfcheetah(path):
     for velocity in np.arange(0.0, 2.01, 0.5):
         task = {'velocity': velocity}
         env = RL2Env(GymEnv(HalfCheetahVelEnv(task), max_episode_length=200))
-        eps = rollout(env, policy, animated=True, deterministic=False)
+        eps = rollout(env, policy, animated=True, deterministic=True)
         t = 0
         for obs_emb, wm_emb, em_emb in zip(eps["agent_infos"]["obs_emb"], eps["agent_infos"]["wm_emb"], eps["agent_infos"]["em_emb"]):
-            np.savetxt(obs_emb_file, np.array([0.0, obs_emb.detach().cpu().numpy()])[np.newaxis], delimiter='\t')
-            np.savetxt(wm_emb_file, np.array([0.0, wm_emb.detach().cpu().numpy()])[np.newaxis], delimiter='\t')
-            np.savetxt(em_emb_file, np.array([0.0, em_emb.detach().cpu().numpy()])[np.newaxis], delimiter='\t')
+            np.savetxt(obs_emb_file, obs_emb.detach().cpu().numpy(), delimiter='\t')
+            np.savetxt(wm_emb_file, wm_emb.detach().cpu().numpy(), delimiter='\t')
+            # np.savetxt(em_emb_file, np.array([0.0, em_emb.detach().cpu().numpy()])[np.newaxis], delimiter='\t')
             np.savetxt(metadata_file, np.array([t, velocity])[np.newaxis], delimiter='\t')
             t = t + 1
         print(sum(eps['rewards']))
