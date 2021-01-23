@@ -60,7 +60,7 @@ def count_parameters(model):
 @click.option('--stop_entropy_gradient', default=True)
 @click.option('--entropy_method', default='max')
 @click.option('--share_network', default=False)
-@click.option('--encoder_only', default=False)
+@click.option('--encoder_only', default=True)
 @click.option('--gpu_id', default=0)
 @wrap_experiment
 def transformer_ppo_halfcheetah(ctxt, seed, max_episode_length, meta_batch_size,

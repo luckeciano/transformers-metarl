@@ -153,11 +153,23 @@ class GaussianTransformerEncoderPolicy(StochasticPolicy):
             std_parameterization=std_parameterization,
             layer_normalization=layer_normalization)
 
+        self.src_mask = None
+
         self._prev_observations = None
         self._prev_actions = None
         self._episodic_memory_counter = None
         self._new_episode = None
         self._step = None
+
+    def get_mask(self):
+        if self.src_mask is not None:
+            return self.src_mask
+        sz = self._obs_horizon
+        ones = torch.ones(sz, sz).to(global_device())
+        mask = (torch.triu(ones) == 1).transpose(0, 1)
+        mask = mask.float().masked_fill(mask == 0, float('-inf')).masked_fill(mask == 1, float(0.0))
+        self.src_mask = mask
+        return mask
 
     def forward(self, observations, hidden_states=None):
         """Compute the action distributions from the observations.
@@ -194,7 +206,7 @@ class GaussianTransformerEncoderPolicy(StochasticPolicy):
 
         working_memo = working_memo.permute(1, 0, 2) #Transformer module inputs (S_len, B, output_step)
         wm_pos = self._wm_positional_encoding(working_memo)
-        transformer_output = self._transformer_module(wm_pos) #(T, B, target_output)
+        transformer_output = self._transformer_module(wm_pos, mask=self.get_mask()) #(T, B, target_output)
         transformer_output = transformer_output.permute(1, 0, 2) # going back to batch first
 
         # Compute policy head input
