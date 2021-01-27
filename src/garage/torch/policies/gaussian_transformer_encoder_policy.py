@@ -96,12 +96,14 @@ class GaussianTransformerEncoderPolicy(StochasticPolicy):
                  dim_feedforward=512,
                  activation='relu',
                  obs_horizon=75,
+                 policy_head_em_only=False,
                  name='GaussianTransformerEncoderPolicy'):
         super().__init__(env_spec, name)
         self._obs_dim = env_spec.observation_space.flat_dim
         self._action_dim = env_spec.action_space.flat_dim
         self._obs_horizon = obs_horizon
         self._d_model = d_model
+        self._policy_head_em_only = policy_head_em_only
 
         self._obs_embedding = MLPModule(
             input_dim = self._obs_dim,
@@ -136,8 +138,13 @@ class GaussianTransformerEncoderPolicy(StochasticPolicy):
             if p.dim() > 1:
                 torch.nn.init.xavier_uniform_(p)
 
+        policy_head_input_dim = d_model
+
+        if not self._policy_head_em_only:
+            policy_head_input_dim += d_model # current working memory + current episodic memory
+
         self._policy_head = GaussianMLPModule(
-            input_dim=2*d_model, # current working memory + current episodic memory
+            input_dim=policy_head_input_dim, 
             output_dim=self._action_dim,
             hidden_sizes=mlp_hidden_sizes,
             hidden_nonlinearity=mlp_hidden_nonlinearity,
@@ -215,7 +222,7 @@ class GaussianTransformerEncoderPolicy(StochasticPolicy):
         curr_em = torch.reshape(curr_em, final_shape_obs) #get just the last hidden state as input for policy head
         curr_working_memo = torch.reshape(curr_working_memo, final_shape_obs)
         
-        memories = torch.cat((curr_working_memo, curr_em), axis=-1)
+        memories = curr_em if self._policy_head_em_only else torch.cat((curr_working_memo, curr_em), axis=-1)
         return memories, transformer_output.detach().cpu().numpy()
 
     def reset(self, do_resets=None):
@@ -355,6 +362,35 @@ class GaussianTransformerEncoderPolicy(StochasticPolicy):
         curr_working_memo = torch.reshape(curr_working_memo, final_shape_obs)
         
         return curr_working_memo, curr_em, curr_em
+
+    def compute_attention_weights(self):
+        # Get original shapes and reshape tensors to have a single batch dimension
+        observations = np_to_torch(self._prev_observations)
+        obs_shape = list(observations.shape)
+        batch_shape = obs_shape[:-2]
+        observations = torch.reshape(observations, (-1, obs_shape[-2], obs_shape[-1]))
+
+        # Computing working memory as a representation from tuple (obs, act, rew)
+        working_memo = self._obs_embedding(observations) #(B, S_len, output_step)
+        #working_memo = working_memo * math.sqrt(self._d_model)
+
+        # get memory index
+        curr_em_index = self._compute_memory_index(observations).unsqueeze(-1).repeat(1, working_memo.shape[-1]).unsqueeze(1)
+
+        # Get current working memory as the most recent in the tensor
+        curr_working_memo = torch.gather(working_memo, dim=1, index=curr_em_index)
+
+        working_memo = working_memo.permute(1, 0, 2) #Transformer module inputs (S_len, B, output_step)
+        wm_pos = self._wm_positional_encoding(working_memo)
+
+        output = wm_pos
+        attn_list = []
+        for mod in self._transformer_module.layers:
+            _, attn_weights = mod.self_attn(output, output, output, attn_mask=self.get_mask(), key_padding_mask=None)
+            attn_list.append(attn_weights.squeeze())
+            output = mod(output, src_mask = self.get_mask(), src_key_padding_mask=None)
+        
+        return attn_list, curr_em_index.squeeze()[0]
         
 
 

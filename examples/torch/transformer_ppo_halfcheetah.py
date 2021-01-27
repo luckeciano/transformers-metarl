@@ -43,9 +43,9 @@ def count_parameters(model):
 @click.option('--d_model', default=4)
 @click.option('--layers', default=1)
 @click.option('--dropout', default=0.0)
-@click.option('--wm_size', default=25)
+@click.option('--wm_size', default=50)
 @click.option('--em_size', default=4)
-@click.option('--dim_ff', default=4)
+@click.option('--dim_ff', default=16)
 @click.option('--discount', default=0.99)
 @click.option('--gae_lambda', default=0.95)
 @click.option('--lr_clip_range', default=0.2)
@@ -61,6 +61,7 @@ def count_parameters(model):
 @click.option('--entropy_method', default='max')
 @click.option('--share_network', default=False)
 @click.option('--encoder_only', default=True)
+@click.option('--policy_head_em_only', default=True)
 @click.option('--gpu_id', default=0)
 @wrap_experiment
 def transformer_ppo_halfcheetah(ctxt, seed, max_episode_length, meta_batch_size,
@@ -68,7 +69,8 @@ def transformer_ppo_halfcheetah(ctxt, seed, max_episode_length, meta_batch_size,
                         wm_embedding_hidden_size, n_heads, d_model, layers, dropout,
                         wm_size, em_size, dim_ff, discount, gae_lambda, lr_clip_range, policy_lr,
                         vf_lr, minibatch_size, max_opt_epochs, center_adv, positive_adv, 
-                        policy_ent_coeff, use_softplus_entropy, stop_entropy_gradient, entropy_method, share_network, encoder_only, gpu_id):
+                        policy_ent_coeff, use_softplus_entropy, stop_entropy_gradient, entropy_method,
+                        share_network, encoder_only, policy_head_em_only, gpu_id):
     """Train PPO with HalfCheetah environment.
 
     Args:
@@ -102,7 +104,8 @@ def transformer_ppo_halfcheetah(ctxt, seed, max_episode_length, meta_batch_size,
                                     num_encoder_layers=layers,
                                     dropout=dropout,
                                     obs_horizon=wm_size,
-                                    dim_feedforward=dim_ff)
+                                    dim_feedforward=dim_ff,
+                                    policy_head_em_only=policy_head_em_only)
     else:         
         policy = GaussianTransformerPolicy(name='policy',
                                     env_spec=env_spec,

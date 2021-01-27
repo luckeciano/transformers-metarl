@@ -14,8 +14,23 @@ from garage.experiment.deterministic import set_seed
 from garage.torch.algos.rl2 import RL2Env, RL2Worker
 from garage.np import stack_tensor_dict_list
 from garage.torch import set_gpu_mode
+from garage.visualization.attention_heatmap import plot_attention
 
 from prettytable import PrettyTable
+
+def create_attention_dict(attn_weights, index_memory, timestep):
+    wm_horizon = attn_weights[0].shape[0]
+    att_dict = {}
+    timestep_label = list(range(wm_horizon))
+    timestep_label = [str(i) for i in timestep_label]
+    timestep_label[index_memory] = timestep_label[index_memory] + ' (Index)'
+    for i in range(len(attn_weights)):
+        att_dict[i] = {}
+        att_dict[i]['weights'] = attn_weights[i].detach().cpu().numpy()
+        att_dict[i]['title'] = "Timestep " + str(timestep)
+        att_dict[i]['x_label'] = timestep_label
+        att_dict[i]['y_label'] = timestep_label
+    return att_dict
 
 def rollout(env,
             agent,
@@ -62,7 +77,6 @@ def rollout(env,
     agent_infos = []
     observations = []
     last_obs, episode_infos = env.reset()
-    agent.reset()
     episode_length = 0
     if animated:
         env.visualize()
@@ -71,6 +85,8 @@ def rollout(env,
             time.sleep(pause_per_frame)
         a, agent_info, _, _ = agent.get_action(last_obs)
         obs_emb, wm_emb, em_emb = agent.compute_current_embeddings()
+        attn_weights, index_memory = agent.compute_attention_weights()
+        agent_info["attention"] = create_attention_dict(attn_weights, index_memory, episode_length)
         agent_info["obs_emb"] = obs_emb
         agent_info["wm_emb"] = wm_emb
         agent_info["em_emb"] = em_emb
@@ -96,7 +112,7 @@ def rollout(env,
     )
 
 @click.command()
-@click.option('--path', default='/data/transformer-metarl/garage/examples/torch/data/local/experiment/transformer_ppo_halfcheetah_11')
+@click.option('--path', default='/data/transformer-metarl/garage/examples/torch/data/local/experiment/transformer_ppo_halfcheetah_16')
 def transformer_ppo_halfcheetah(path):
     """Eval policy with HalfCheetah environment.
     """
@@ -109,7 +125,6 @@ def transformer_ppo_halfcheetah(path):
 
     policy = data['algo'].policy
 
-
     if torch.cuda.is_available():
         set_gpu_mode(True, gpu_id=0)
     else:
@@ -121,9 +136,19 @@ def transformer_ppo_halfcheetah(path):
     metadata_file = open("embeddings/metadata.tsv", "ab")
     for velocity in np.arange(0.0, 2.01, 0.5):
         task = {'velocity': velocity}
+        policy.reset()
+        policy.reset_observations()
         env = RL2Env(GymEnv(HalfCheetahVelEnv(task), max_episode_length=200))
-        eps = rollout(env, policy, animated=True, deterministic=True)
+        eps = rollout(env, policy, animated=False, deterministic=True)
         t = 0
+        attn_dict = eps["agent_infos"]["attention"][0]
+        for i in range(attn_dict['weights'].shape[0]):
+            attn_weights = attn_dict['weights'][i]
+            title = attn_dict['title'][i]
+            title = title + " Velocity " + str(velocity) + " Layer " + str(i)
+            x_lb = attn_dict['x_label'][i]
+            y_lb = attn_dict['y_label'][i]
+            plot_attention(attn_weights, x_lb, y_lb, title, "./visualization")
         for obs_emb, wm_emb, em_emb in zip(eps["agent_infos"]["obs_emb"], eps["agent_infos"]["wm_emb"], eps["agent_infos"]["em_emb"]):
             np.savetxt(obs_emb_file, obs_emb.detach().cpu().numpy(), delimiter='\t')
             np.savetxt(wm_emb_file, wm_emb.detach().cpu().numpy(), delimiter='\t')
