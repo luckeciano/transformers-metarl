@@ -96,14 +96,14 @@ class GaussianTransformerEncoderPolicy(StochasticPolicy):
                  dim_feedforward=512,
                  activation='relu',
                  obs_horizon=75,
-                 policy_head_em_only=False,
+                 policy_head_input="latest_memory",
                  name='GaussianTransformerEncoderPolicy'):
         super().__init__(env_spec, name)
         self._obs_dim = env_spec.observation_space.flat_dim
         self._action_dim = env_spec.action_space.flat_dim
         self._obs_horizon = obs_horizon
         self._d_model = d_model
-        self._policy_head_em_only = policy_head_em_only
+        self._policy_head_input = policy_head_input
 
         self._obs_embedding = MLPModule(
             input_dim = self._obs_dim,
@@ -138,13 +138,15 @@ class GaussianTransformerEncoderPolicy(StochasticPolicy):
             if p.dim() > 1:
                 torch.nn.init.xavier_uniform_(p)
 
-        policy_head_input_dim = d_model
-
-        if not self._policy_head_em_only:
-            policy_head_input_dim += d_model # current working memory + current episodic memory
+        if self._policy_head_input == "latest_memory":
+            self._policy_head_input_dim = d_model
+        elif self._policy_head_input == "mixed_memory": # working memory + episodic memory
+            self._policy_head_input_dim = 2*d_model
+        elif self._policy_head_input == "full_memory":
+            self._policy_head_input_dim = d_model * self._obs_horizon
 
         self._policy_head = GaussianMLPModule(
-            input_dim=policy_head_input_dim, 
+            input_dim=self._policy_head_input_dim, 
             output_dim=self._action_dim,
             hidden_sizes=mlp_hidden_sizes,
             hidden_nonlinearity=mlp_hidden_nonlinearity,
@@ -217,12 +219,20 @@ class GaussianTransformerEncoderPolicy(StochasticPolicy):
         transformer_output = transformer_output.permute(1, 0, 2) # going back to batch first
 
         # Compute policy head input
+        if self._policy_head_input == "full_memory":
+            return torch.reshape(transformer_output, batch_shape + [self._policy_head_input_dim]), transformer_output.detach().cpu().numpy()
+
         curr_em = torch.gather(transformer_output, dim=1, index=curr_em_index)
         final_shape_obs = batch_shape + [self._obs_embedding._output_dim]
         curr_em = torch.reshape(curr_em, final_shape_obs) #get just the last hidden state as input for policy head
         curr_working_memo = torch.reshape(curr_working_memo, final_shape_obs)
         
-        memories = curr_em if self._policy_head_em_only else torch.cat((curr_working_memo, curr_em), axis=-1)
+        memories = None
+        if self._policy_head_input == "latest_memory":
+            memories = curr_em
+        elif self._policy_head_input == "mixed_memory":
+            memories = torch.cat((curr_working_memo, curr_em), axis=-1)
+            
         return memories, transformer_output.detach().cpu().numpy()
 
     def reset(self, do_resets=None):
@@ -396,4 +406,4 @@ class GaussianTransformerEncoderPolicy(StochasticPolicy):
 
     @property
     def memory_dim(self):
-        return 2*self._d_model
+        return self._policy_head_input_dim

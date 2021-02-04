@@ -14,7 +14,7 @@ from garage.sampler import LocalSampler
 from garage.trainer import Trainer
 from garage.torch.algos import RL2PPO
 from garage.torch.algos.rl2 import RL2Env, RL2Worker
-from garage.torch.policies import GaussianTransformerPolicy, GaussianTransformerEncoderPolicy
+from garage.torch.policies import GaussianTransformerPolicy, GaussianTransformerEncoderPolicy, GaussianMemoryTransformerPolicy
 from garage.torch.value_functions import GaussianMLPValueFunction
 
 from prettytable import PrettyTable
@@ -37,14 +37,14 @@ def count_parameters(model):
 @click.option('--max_episode_length', default=200)
 @click.option('--meta_batch_size', default=10)
 @click.option('--n_epochs', default=1000000)
-@click.option('--episode_per_task', default=4)
+@click.option('--episode_per_task', default=2)
 @click.option('--wm_embedding_hidden_size', default=5)
 @click.option('--n_heads', default=1)
 @click.option('--d_model', default=4)
 @click.option('--layers', default=1)
 @click.option('--dropout', default=0.0)
-@click.option('--wm_size', default=50)
-@click.option('--em_size', default=4)
+@click.option('--wm_size', default=5)
+@click.option('--em_size', default=5)
 @click.option('--dim_ff', default=16)
 @click.option('--discount', default=0.99)
 @click.option('--gae_lambda', default=0.95)
@@ -60,8 +60,9 @@ def count_parameters(model):
 @click.option('--stop_entropy_gradient', default=True)
 @click.option('--entropy_method', default='max')
 @click.option('--share_network', default=False)
-@click.option('--encoder_only', default=True)
-@click.option('--policy_head_em_only', default=True)
+@click.option('--architecture', default="MemoryTransformer")
+@click.option('--policy_head_input', default="full_memory")
+@click.option('--dropatt', default=0.0)
 @click.option('--gpu_id', default=0)
 @wrap_experiment
 def transformer_ppo_halfcheetah(ctxt, seed, max_episode_length, meta_batch_size,
@@ -70,7 +71,7 @@ def transformer_ppo_halfcheetah(ctxt, seed, max_episode_length, meta_batch_size,
                         wm_size, em_size, dim_ff, discount, gae_lambda, lr_clip_range, policy_lr,
                         vf_lr, minibatch_size, max_opt_epochs, center_adv, positive_adv, 
                         policy_ent_coeff, use_softplus_entropy, stop_entropy_gradient, entropy_method,
-                        share_network, encoder_only, policy_head_em_only, gpu_id):
+                        share_network, architecture, policy_head_input, dropatt, gpu_id):
     """Train PPO with HalfCheetah environment.
 
     Args:
@@ -95,7 +96,7 @@ def transformer_ppo_halfcheetah(ctxt, seed, max_episode_length, meta_batch_size,
         GymEnv(HalfCheetahVelEnv(),
                 max_episode_length=max_episode_length)).spec
 
-    if encoder_only:
+    if architecture == "Encoder":
         policy = GaussianTransformerEncoderPolicy(name='policy',
                                     env_spec=env_spec,
                                     encoding_hidden_sizes=(wm_embedding_hidden_size,),
@@ -105,8 +106,8 @@ def transformer_ppo_halfcheetah(ctxt, seed, max_episode_length, meta_batch_size,
                                     dropout=dropout,
                                     obs_horizon=wm_size,
                                     dim_feedforward=dim_ff,
-                                    policy_head_em_only=policy_head_em_only)
-    else:         
+                                    policy_head_input=policy_head_input)
+    elif architecture == "Transformer":         
         policy = GaussianTransformerPolicy(name='policy',
                                     env_spec=env_spec,
                                     encoding_hidden_sizes=(wm_embedding_hidden_size,),
@@ -118,6 +119,20 @@ def transformer_ppo_halfcheetah(ctxt, seed, max_episode_length, meta_batch_size,
                                     obs_horizon=wm_size,
                                     hidden_horizon=em_size,
                                     dim_feedforward=dim_ff)
+    elif architecture == "MemoryTransformer":
+        policy = GaussianMemoryTransformerPolicy(name='policy',
+                                    env_spec=env_spec,
+                                    encoding_hidden_sizes=(wm_embedding_hidden_size,),
+                                    nhead=n_heads,
+                                    d_model=d_model,
+                                    num_encoder_layers=layers,
+                                    dropout=dropout,
+                                    dropatt=dropatt,
+                                    obs_horizon=wm_size,
+                                    mem_len=em_size,
+                                    dim_feedforward=dim_ff,
+                                    policy_head_input=policy_head_input)
+                                    
 
     # count_parameters(policy)
 
