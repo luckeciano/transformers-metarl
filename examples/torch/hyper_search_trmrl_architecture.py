@@ -18,7 +18,7 @@ heads_dmodel = [(1, 4), (1, 16),(1, 32), (1, 64),
 
 encoder_decoder_layers = [2, 3, 4, 6, 8, 12]
 dropout = [0.0] # 0.1, 0.25, 0.5] #0.8]
-memory_size = [1, 5, 25, 50, 75, 100]
+memory_size_list = [1, 5, 25, 50, 75, 100]
 policy_head_input_list = ["full_memory", "latest_memory"]
 attn_type_list = [0, 1]
 
@@ -65,8 +65,9 @@ def run_search(gpu_id):
         
         for _ in range(MAX_RUNNING_PROCESSES - len(process_list)):
             print("Starting new process...")
+            mem_size = random.choice(memory_size_list)
             cmd = trmrl_cmd(random.choice(wm_embedding_hidden_size), random.choice(heads_dmodel), random.choice(encoder_decoder_layers), \
-                random.choice(dropout), random.choice(wm_size), random.choice(em_size), gpu_id)
+                random.choice(dropout), mem_size, mem_size, random.choice(attn_type_list), random.choice(policy_head_input_list), gpu_id)
             p = subprocess.Popen(shlex.split(cmd))
             time.sleep(10)
             process_list.append(p)
