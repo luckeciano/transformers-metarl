@@ -8,25 +8,26 @@ import random
 import click
 import shlex
 
-wm_embedding_hidden_size = [8, 32, 64, 128, 256] #, 512]
-heads_dmodel = [(1, 1), (1, 4), (1, 16),(1, 32), (1, 64),
-    (2, 2), (2, 4), (2, 8), (2, 64), (2, 32), (2, 16),
-    (4, 64), (4, 32), (4, 16), (4, 8), (4, 4),
-    (8, 64), (8, 32), (8, 16), (8, 8),
-    (16, 64), (16, 32), (16, 16),
-    (32, 64), (32, 32)]
+wm_embedding_hidden_size = [8, 32, 64] #, 512]
+heads_dmodel = [(1, 4), (1, 16),(1, 32), (1, 64),
+    (2, 8), (2, 64), (2, 32), (2, 16),
+    (4, 64), (4, 32), (4, 16), (4, 8),
+    (8, 64), (8, 32), (8, 16),
+    (16, 64), (16, 32), (16, 128),
+    (32, 64), (32, 32), (32, 128)]
 
-encoder_decoder_layers = [1, 2, 3, 4]
-dropout = [0.0, 0.1, 0.25, 0.5] #0.8]
-wm_size = [5, 25, 50, 75, 100]
-em_size = [1, 2, 3, 4]
+encoder_decoder_layers = [2, 3, 4, 6, 8, 12]
+dropout = [0.0] # 0.1, 0.25, 0.5] #0.8]
+memory_size = [1, 5, 25, 50, 75, 100]
+policy_head_input_list = ["full_memory", "latest_memory"]
+attn_type_list = [0, 1]
 
-
-def trmrl_cmd(wm_emb_hidden_size, nheads_dmodel, layers, dropout_rate, wm_length, em_length, gpu_id):
+def trmrl_cmd(wm_emb_hidden_size, nheads_dmodel, layers, dropout_rate, wm_length, em_length, attn_type, policy_head_input, gpu_id):
     cmd = "./transformer_ppo_halfcheetah.py --wm_embedding_hidden_size=" + str(wm_emb_hidden_size) + \
     " --n_heads=" + str(nheads_dmodel[0]) + " --d_model=" + str(nheads_dmodel[1]) + " --layers=" + str(layers) + \
     " --dropout=" + str(dropout_rate) + " --wm_size=" + str(wm_length) + " --em_size=" + str(em_length) + " --dim_ff=" + str(4 * nheads_dmodel[1]) + \
-    " --meta_batch_size=" + str(10) + " --episode_per_task=" + str(4) + " --discount=" + str(0.99) + \
+    " --attn_type=" + str(attn_type) + " --policy_head_input=" + str(policy_head_input) + \
+    " --meta_batch_size=" + str(10) + " --episode_per_task=" + str(2) + " --discount=" + str(0.99) + \
     " --gae_lambda=" + str(0.95) + " --lr_clip_range=" + str(0.2) + " --policy_lr=" + str(0.00025) + " --vf_lr=" + str(0.00025) + \
     " --minibatch_size=" + str(32) + " --max_opt_epochs=" + str(10) + " --gpu_id=" + str(gpu_id)
 

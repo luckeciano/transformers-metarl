@@ -41,10 +41,10 @@ def count_parameters(model):
 @click.option('--wm_embedding_hidden_size', default=5)
 @click.option('--n_heads', default=1)
 @click.option('--d_model', default=4)
-@click.option('--layers', default=1)
+@click.option('--layers', default=2)
 @click.option('--dropout', default=0.0)
-@click.option('--wm_size', default=5)
-@click.option('--em_size', default=5)
+@click.option('--wm_size', default=1)
+@click.option('--em_size', default=1)
 @click.option('--dim_ff', default=16)
 @click.option('--discount', default=0.99)
 @click.option('--gae_lambda', default=0.95)
@@ -63,6 +63,7 @@ def count_parameters(model):
 @click.option('--architecture', default="MemoryTransformer")
 @click.option('--policy_head_input', default="full_memory")
 @click.option('--dropatt', default=0.0)
+@click.option('--attn_type', default=0)
 @click.option('--gpu_id', default=0)
 @wrap_experiment
 def transformer_ppo_halfcheetah(ctxt, seed, max_episode_length, meta_batch_size,
@@ -71,7 +72,7 @@ def transformer_ppo_halfcheetah(ctxt, seed, max_episode_length, meta_batch_size,
                         wm_size, em_size, dim_ff, discount, gae_lambda, lr_clip_range, policy_lr,
                         vf_lr, minibatch_size, max_opt_epochs, center_adv, positive_adv, 
                         policy_ent_coeff, use_softplus_entropy, stop_entropy_gradient, entropy_method,
-                        share_network, architecture, policy_head_input, dropatt, gpu_id):
+                        share_network, architecture, policy_head_input, dropatt, attn_type, gpu_id):
     """Train PPO with HalfCheetah environment.
 
     Args:
@@ -131,6 +132,7 @@ def transformer_ppo_halfcheetah(ctxt, seed, max_episode_length, meta_batch_size,
                                     obs_horizon=wm_size,
                                     mem_len=em_size,
                                     dim_feedforward=dim_ff,
+                                    attn_type=attn_type,
                                     policy_head_input=policy_head_input)
                                     
 
