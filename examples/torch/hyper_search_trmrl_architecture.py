@@ -21,12 +21,15 @@ dropout = [0.0] # 0.1, 0.25, 0.5] #0.8]
 memory_size_list = [1, 5, 25, 50, 75, 100]
 policy_head_input_list = ["full_memory", "latest_memory"]
 attn_type_list = [0, 1]
+pre_lnorm_list = [True, False]
+init_params_list = [True, False]
 
-def trmrl_cmd(wm_emb_hidden_size, nheads_dmodel, layers, dropout_rate, wm_length, em_length, attn_type, policy_head_input, gpu_id):
+def trmrl_cmd(wm_emb_hidden_size, nheads_dmodel, layers, dropout_rate, wm_length, em_length, attn_type, policy_head_input, pre_lnorm, init_params, gpu_id):
     cmd = "./transformer_ppo_halfcheetah.py --wm_embedding_hidden_size=" + str(wm_emb_hidden_size) + \
     " --n_heads=" + str(nheads_dmodel[0]) + " --d_model=" + str(nheads_dmodel[1]) + " --layers=" + str(layers) + \
     " --dropout=" + str(dropout_rate) + " --wm_size=" + str(wm_length) + " --em_size=" + str(em_length) + " --dim_ff=" + str(4 * nheads_dmodel[1]) + \
     " --attn_type=" + str(attn_type) + " --policy_head_input=" + str(policy_head_input) + \
+    " --pre_lnorm=" + str(pre_lnorm) + " --init_params=" + str(init_params) + \
     " --meta_batch_size=" + str(10) + " --episode_per_task=" + str(2) + " --discount=" + str(0.99) + \
     " --gae_lambda=" + str(0.95) + " --lr_clip_range=" + str(0.2) + " --policy_lr=" + str(0.00025) + " --vf_lr=" + str(0.00025) + \
     " --minibatch_size=" + str(32) + " --max_opt_epochs=" + str(10) + " --gpu_id=" + str(gpu_id)
@@ -67,7 +70,8 @@ def run_search(gpu_id):
             print("Starting new process...")
             mem_size = random.choice(memory_size_list)
             cmd = trmrl_cmd(random.choice(wm_embedding_hidden_size), random.choice(heads_dmodel), random.choice(encoder_decoder_layers), \
-                random.choice(dropout), mem_size, mem_size, random.choice(attn_type_list), random.choice(policy_head_input_list), gpu_id)
+                random.choice(dropout), mem_size, mem_size, random.choice(attn_type_list), random.choice(policy_head_input_list),
+                random.choice(pre_lnorm_list), random.choice(init_params_list), gpu_id)
             p = subprocess.Popen(shlex.split(cmd))
             time.sleep(10)
             process_list.append(p)
