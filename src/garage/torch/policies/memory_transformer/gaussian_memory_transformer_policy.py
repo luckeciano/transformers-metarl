@@ -48,6 +48,7 @@ class GaussianMemoryTransformerPolicy(StochasticPolicy):
                  ext_len=0,
                  mem_len=0,
                  attn_type=0, #default attention
+                 init_params=True,
                  name='GaussianTransformerEncoderPolicy'):
         super().__init__(env_spec, name)
         self._obs_dim = env_spec.observation_space.flat_dim
@@ -77,9 +78,10 @@ class GaussianMemoryTransformerPolicy(StochasticPolicy):
             dim_ff=dim_feedforward, dropout=dropout, dropatt=dropatt, obs_embedding_fn=self._obs_embedding, pre_lnorm=pre_lnorm,
             tgt_len=tgt_len, ext_len=ext_len, mem_len=mem_len, attn_type=attn_type)
 
-        for p in self._transformer_module.parameters():
-            if p.dim() > 1:
-                torch.nn.init.xavier_uniform_(p)
+        if init_params:
+            for p in self._transformer_module.parameters():
+                if p.dim() > 1:
+                    torch.nn.init.xavier_uniform_(p)
 
         if self._policy_head_input == "latest_memory":
             self._policy_head_input_dim = d_model * self._obs_horizon
