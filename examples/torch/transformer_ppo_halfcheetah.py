@@ -66,6 +66,7 @@ def count_parameters(model):
 @click.option('--attn_type', default=0)
 @click.option('--pre_lnorm', default=True)
 @click.option('--init_params', default=True)
+@click.option('--gating', default="gru")
 @click.option('--gpu_id', default=0)
 @wrap_experiment
 def transformer_ppo_halfcheetah(ctxt, seed, max_episode_length, meta_batch_size,
@@ -74,7 +75,8 @@ def transformer_ppo_halfcheetah(ctxt, seed, max_episode_length, meta_batch_size,
                         wm_size, em_size, dim_ff, discount, gae_lambda, lr_clip_range, policy_lr,
                         vf_lr, minibatch_size, max_opt_epochs, center_adv, positive_adv, 
                         policy_ent_coeff, use_softplus_entropy, stop_entropy_gradient, entropy_method,
-                        share_network, architecture, policy_head_input, dropatt, attn_type, pre_lnorm, init_params, gpu_id):
+                        share_network, architecture, policy_head_input, dropatt, attn_type,
+                        pre_lnorm, init_params, gating, gpu_id):
     """Train PPO with HalfCheetah environment.
 
     Args:
@@ -137,6 +139,7 @@ def transformer_ppo_halfcheetah(ctxt, seed, max_episode_length, meta_batch_size,
                                     attn_type=attn_type,
                                     pre_lnorm=pre_lnorm,
                                     init_params=init_params,
+                                    gating=gating,
                                     policy_head_input=policy_head_input)
                                     
 

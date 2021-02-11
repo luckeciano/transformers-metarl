@@ -49,6 +49,7 @@ class GaussianMemoryTransformerPolicy(StochasticPolicy):
                  mem_len=0,
                  attn_type=0, #default attention
                  init_params=True,
+                 gating="residual",
                  name='GaussianTransformerEncoderPolicy'):
         super().__init__(env_spec, name)
         self._obs_dim = env_spec.observation_space.flat_dim
@@ -76,7 +77,7 @@ class GaussianMemoryTransformerPolicy(StochasticPolicy):
         self._transformer_module = MemoryTransformer(
             n_layer=num_encoder_layers, n_head=nhead, d_model=d_model, d_head=head_dim,
             dim_ff=dim_feedforward, dropout=dropout, dropatt=dropatt, obs_embedding_fn=self._obs_embedding, pre_lnorm=pre_lnorm,
-            tgt_len=tgt_len, ext_len=ext_len, mem_len=mem_len, attn_type=attn_type)
+            tgt_len=tgt_len, ext_len=ext_len, mem_len=mem_len, attn_type=attn_type, gating=gating)
 
         if init_params:
             for p in self._transformer_module.parameters():

@@ -28,13 +28,48 @@ class PositionalEmbedding(nn.Module):
         else:
             return pos_emb[:,None,:]
 
+'''
+GRU gating layer used in Stabilizing transformers in RL.
+Note that all variable names follow the notation from section: "Gated-Recurrent-Unit-type gating" 
+in https://arxiv.org/pdf/1910.06764.pdf
+'''
+class GRUGate(nn.Module):
+
+    def __init__(self,d_model):
+        #d_model is dimension of embedding for each token as input to layer (want to maintain this in the gate)
+        super(GRUGate,self).__init__()
+
+        # TODO: DEBUG Make sure intitialize bias of linear_w_z to -3
+        self.linear_w_r = nn.Linear(d_model,d_model,bias=False)
+        self.linear_u_r = nn.Linear(d_model,d_model,bias=False)
+        self.linear_w_z = nn.Linear(d_model,d_model)               ### Giving bias to this layer (will count as b_g so can just initialize negative)
+        self.linear_u_z = nn.Linear(d_model, d_model,bias=False)
+        self.linear_w_g = nn.Linear(d_model, d_model,bias=False)
+        self.linear_u_g = nn.Linear(d_model, d_model,bias=False)
+
+        self.init_bias()
+
+    def init_bias(self):
+        with torch.no_grad():
+            self.linear_w_z.bias.fill_(-2)  # Manually setting this bias to allow starting with markov process
+            # Note -2 is the setting used in the paper stable transformers
+
+    def forward(self,x,y):
+        ### Here x,y follow from notation in paper
+        # TODO: DEBUG MAKE SURE THIS IS APPLIED ON PROPER AXIS
+        z = torch.sigmoid(self.linear_w_z(y) + self.linear_u_z(x))  #MAKE SURE THIS IS APPLIED ON PROPER AXIS
+        r = torch.sigmoid(self.linear_w_r(y) + self.linear_u_r(x))
+        h_hat = torch.tanh(self.linear_w_g(y) + self.linear_u_g(r*x))  #Note elementwise multiplication of r and x
+        return (1.-z)*x + z*h_hat
+
 class PositionwiseFF(nn.Module):
-    def __init__(self, d_model, dim_ff, dropout, pre_lnorm=False):
+    def __init__(self, d_model, dim_ff, dropout, pre_lnorm=False, gating="residual"):
         super(PositionwiseFF, self).__init__()
 
         self.d_model = d_model
         self.dim_ff = dim_ff
         self.dropout = dropout
+        self.gating = gating
 
         self.CoreNet = nn.Sequential(
             nn.Linear(d_model, dim_ff), nn.ReLU(inplace=True),
@@ -47,31 +82,41 @@ class PositionwiseFF(nn.Module):
 
         self.pre_lnorm = pre_lnorm
 
+        if self.gating == "gru":
+            self.gate_mlp = GRUGate(d_model)
+
     def forward(self, inp):
         if self.pre_lnorm:
-            ##### layer normalization + positionwise feed-forward
-            core_out = self.CoreNet(self.layer_norm(inp))
+            inp = self.layer_norm(inp)
+        
+        core_out = self.CoreNet(inp)
 
+        if self.gating == "residual":
             ##### residual connection
-            output = core_out + inp
-        else:
-            ##### positionwise feed-forward
-            core_out = self.CoreNet(inp)
+            output = inp + core_out
+        elif self.gating == "gru":
+            ##### gru gating
+            output = self.gate_mlp(inp, F.relu(core_out))
+        elif self.gating == "residual_relu":
+            ##### residual connection + relu
+            output = inp + F.relu(core_out)
 
-            ##### residual connection + layer normalization
-            output = self.layer_norm(inp + core_out)
+        if not self.pre_lnorm:
+            ##### layer normalization
+            output = self.layer_norm(output)
 
         return output
 
 class RelMultiHeadAttn(nn.Module):
     def __init__(self, n_head, d_model, d_head, dropout, dropatt=0,
-                 tgt_len=None, ext_len=None, mem_len=None, pre_lnorm=False):
+                 tgt_len=None, ext_len=None, mem_len=None, pre_lnorm=False, gating="residual"):
         super(RelMultiHeadAttn, self).__init__()
 
         self.n_head = n_head
         self.d_model = d_model
         self.d_head = d_head
         self.dropout = dropout
+        self.gating = gating
 
         self.qkv_net = nn.Linear(d_model, 3 * n_head * d_head, bias=False)
 
@@ -84,6 +129,20 @@ class RelMultiHeadAttn(nn.Module):
         self.scale = 1 / (d_head ** 0.5)
 
         self.pre_lnorm = pre_lnorm
+
+        if self.gating == "gru":
+            self.gate_mha = GRUGate(d_model)
+
+    def _attention_gating(self, w, attn_out):
+        if self.gating == "residual":
+            ##### residual connection
+            return w + attn_out
+        elif self.gating == "gru":
+            ##### gru gating
+            return self.gate_mha(w, F.relu(attn_out))
+        elif self.gating == "residual_relu":
+            ##### residual connection + relu
+            return w + F.relu(attn_out)
 
     def _parallelogram_mask(self, h, w, left=False):
         mask = torch.ones((h, w)).byte()
@@ -205,12 +264,11 @@ class RelPartialLearnableMultiHeadAttn(RelMultiHeadAttn):
         attn_out = self.o_net(attn_vec)
         attn_out = self.drop(attn_out)
 
-        if self.pre_lnorm:
-            ##### residual connection
-            output = w + attn_out
-        else:
-            ##### residual connection + layer normalization
-            output = self.layer_norm(w + attn_out)
+        output = self._attention_gating(w, attn_out)
+
+        if not self.pre_lnorm:
+            ##### layer normalization
+            output = self.layer_norm(output)
 
         return output
 
@@ -290,12 +348,11 @@ class RelLearnableMultiHeadAttn(RelMultiHeadAttn):
         attn_out = self.o_net(attn_vec)
         attn_out = self.drop(attn_out)
 
-        if self.pre_lnorm:
-            ##### residual connection
-            output = w + attn_out
-        else:
-            ##### residual connection + layer normalization
-            output = self.layer_norm(w + attn_out)
+        output = self._attention_gating(w, attn_out)
+
+        if not self.pre_lnorm:
+            ##### layer normalization
+            output = self.layer_norm(output)
 
         return output
 
@@ -308,7 +365,8 @@ class RelLearnableDecoderLayer(nn.Module):
         self.dec_attn = RelLearnableMultiHeadAttn(n_head, d_model, d_head, dropout,
                                          **kwargs)
         self.pos_ff = PositionwiseFF(d_model, dim_ff, dropout, 
-                                     pre_lnorm=kwargs.get('pre_lnorm'))
+                                     pre_lnorm=kwargs.get('pre_lnorm'),
+                                     gating=kwargs.get('gating'))
 
     def forward(self, dec_inp, r_emb, r_w_bias, r_bias, dec_attn_mask=None, mems=None):
 
@@ -327,7 +385,8 @@ class RelPartialLearnableDecoderLayer(nn.Module):
         self.dec_attn = RelPartialLearnableMultiHeadAttn(n_head, d_model,
                             d_head, dropout, **kwargs)
         self.pos_ff = PositionwiseFF(d_model, dim_ff, dropout, 
-                                     pre_lnorm=kwargs.get('pre_lnorm'))
+                                     pre_lnorm=kwargs.get('pre_lnorm'),
+                                     gating=kwargs.get('gating'))
 
     def forward(self, dec_inp, r, r_w_bias, r_r_bias, dec_attn_mask=None, mems=None):
 
@@ -342,7 +401,7 @@ class RelPartialLearnableDecoderLayer(nn.Module):
 class MemoryTransformer(nn.Module):
     def __init__(self, n_layer, n_head, d_model, d_head, dim_ff,
                  dropout, dropatt, obs_embedding_fn, pre_lnorm=False,
-                 tgt_len=None, ext_len=None, mem_len=None, 
+                 gating="residual", tgt_len=None, ext_len=None, mem_len=None, 
                  same_length=False, attn_type=0, clamp_len=-1):
         super(MemoryTransformer, self).__init__()
 
@@ -370,7 +429,7 @@ class MemoryTransformer(nn.Module):
                     RelPartialLearnableDecoderLayer(
                         n_head, d_model, d_head, dim_ff, dropout,
                         tgt_len=tgt_len, ext_len=ext_len, mem_len=mem_len,
-                        dropatt=dropatt, pre_lnorm=pre_lnorm)
+                        dropatt=dropatt, pre_lnorm=pre_lnorm, gating=gating)
                 )
         elif attn_type == 1: # learnable embeddings
             for i in range(n_layer):
@@ -378,7 +437,7 @@ class MemoryTransformer(nn.Module):
                     RelLearnableDecoderLayer(
                         n_head, d_model, d_head, dim_ff, dropout,
                         tgt_len=tgt_len, ext_len=ext_len, mem_len=mem_len,
-                        dropatt=dropatt, pre_lnorm=pre_lnorm)
+                        dropatt=dropatt, pre_lnorm=pre_lnorm, gating=gating)
                     )
 
 
