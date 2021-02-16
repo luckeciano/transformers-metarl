@@ -52,7 +52,7 @@ def trmrl_cmd(wm_emb_hidden_size, nheads_dmodel, layers, dropout_rate, wm_length
     " --minibatch_size=" + str(minibatch_size) + " --max_opt_epochs=" + str(max_opt_epochs) + \
     " --policy_ent_coeff=" + str(policy_ent_coeff) + \
     " --entropy_method=" + str(entropy_method) + " --gpu_id=" + str(gpu_id) + \
-    " --architecture=" + str(architecture) + " --policy_head_input=" + str(policy_head_input) + "--attn_type=" + str(attn_type)
+    " --architecture=" + str(architecture) + " --policy_head_input=" + str(policy_head_input) + " --attn_type=" + str(attn_type)
 
     if pre_lnorm:
         cmd += " --pre_lnorm"
