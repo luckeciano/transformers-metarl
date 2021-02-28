@@ -36,7 +36,7 @@ def count_parameters(model):
 @click.option('--seed', default=1)
 @click.option('--max_episode_length', default=200)
 @click.option('--meta_batch_size', default=10)
-@click.option('--n_epochs', default=1000000)
+@click.option('--n_epochs', default=15)
 @click.option('--episode_per_task', default=2)
 @click.option('--wm_embedding_hidden_size', default=5)
 @click.option('--n_heads', default=1)
@@ -59,7 +59,7 @@ def count_parameters(model):
 @click.option('--use_softplus_entropy', is_flag=True)
 @click.option('--stop_entropy_gradient', is_flag=True)
 @click.option('--entropy_method', default='max')
-@click.option('--share_network', is_flag=True)
+@click.option('--share_network', is_flag=True) 
 @click.option('--architecture', default="MemoryTransformer")
 @click.option('--policy_head_input', default="full_memory")
 @click.option('--dropatt', default=0.0)
@@ -67,6 +67,11 @@ def count_parameters(model):
 @click.option('--pre_lnorm', is_flag=True)
 @click.option('--init_params', is_flag=True)
 @click.option('--gating', default="residual")
+@click.option('--init_std', default=1.0)
+@click.option('--learn_std', is_flag=True)
+@click.option('--policy_head_type', default="Default")
+@click.option('--policy_lr_warmup', is_flag=True)
+@click.option('--vf_lr_warmup', is_flag=True)
 @click.option('--gpu_id', default=0)
 @wrap_experiment
 def transformer_ppo_halfcheetah(ctxt, seed, max_episode_length, meta_batch_size,
@@ -76,7 +81,8 @@ def transformer_ppo_halfcheetah(ctxt, seed, max_episode_length, meta_batch_size,
                         vf_lr, minibatch_size, max_opt_epochs, center_adv, positive_adv, 
                         policy_ent_coeff, use_softplus_entropy, stop_entropy_gradient, entropy_method,
                         share_network, architecture, policy_head_input, dropatt, attn_type,
-                        pre_lnorm, init_params, gating, gpu_id):
+                        pre_lnorm, init_params, gating, init_std, learn_std, policy_head_type,
+                        policy_lr_warmup, vf_lr_warmup, gpu_id):
     """Train PPO with HalfCheetah environment.
 
     Args:
@@ -140,6 +146,9 @@ def transformer_ppo_halfcheetah(ctxt, seed, max_episode_length, meta_batch_size,
                                     pre_lnorm=pre_lnorm,
                                     init_params=init_params,
                                     gating=gating,
+                                    init_std=init_std,
+                                    learn_std=learn_std,
+                                    policy_head_type=policy_head_type,
                                     policy_head_input=policy_head_input)
                                     
 
@@ -161,6 +170,8 @@ def transformer_ppo_halfcheetah(ctxt, seed, max_episode_length, meta_batch_size,
                                         worker_args=dict(n_episodes_per_trial=3))
     meta_evaluator = None
 
+    steps_per_epoch = max_opt_epochs * (max_episode_length * episode_per_task * meta_batch_size) // minibatch_size
+
     algo = RL2PPO(meta_batch_size=meta_batch_size,
                     task_sampler=tasks,
                     env_spec=env_spec,
@@ -181,6 +192,10 @@ def transformer_ppo_halfcheetah(ctxt, seed, max_episode_length, meta_batch_size,
                     center_adv=center_adv,
                     positive_adv=positive_adv,
                     meta_evaluator=meta_evaluator,
+                    policy_lr_warmup=policy_lr_warmup,
+                    vf_lr_warmup=vf_lr_warmup,
+                    steps_per_epoch=steps_per_epoch,
+                    n_epochs=n_epochs,
                     n_epochs_per_eval=15)
 
     if torch.cuda.is_available():

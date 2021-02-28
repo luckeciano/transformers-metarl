@@ -197,12 +197,14 @@ class VPG(RLAlgorithm):
             tabular.record('/KLBefore', kl_before.item())
             tabular.record('/KL', kl_after.item())
             tabular.record('/Entropy', policy_entropy.mean().item())
+            tabular.record('/lr', self._policy_optimizer._optimizer.param_groups[0]['lr'])
 
         with tabular.prefix(self._value_function.name):
             tabular.record('/LossBefore', vf_loss_before.item())
             tabular.record('/LossAfter', vf_loss_after.item())
             tabular.record('/dLoss',
                            vf_loss_before.item() - vf_loss_after.item())
+            tabular.record('/lr', self._vf_optimizer._optimizer.param_groups[0]['lr'])
 
         self._old_policy.load_state_dict(self.policy.state_dict())
 

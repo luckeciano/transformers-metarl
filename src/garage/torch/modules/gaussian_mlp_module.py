@@ -149,8 +149,10 @@ class GaussianMLPBaseModule(nn.Module):
         buffers = dict(self.named_buffers())
         if not isinstance(self._init_std, torch.nn.Parameter):
             self._init_std = buffers['init_std']
-        self._min_std_param = buffers['min_std_param']
-        self._max_std_param = buffers['max_std_param']
+        if self._min_std_param is not None:
+            self._min_std_param = buffers['min_std_param']
+        if self._max_std_param  is not None:
+            self._max_std_param = buffers['max_std_param']
 
     @abc.abstractmethod
     def _get_mean_and_log_std(self, *inputs):

@@ -1,7 +1,7 @@
 """Proximal Policy Optimization for RL2."""
 from garage.torch.algos import RL2
 import torch
-from garage.torch.optimizers import OptimizerWrapper
+from garage.torch.optimizers import OptimizerWrapper, WarmupOptimizerWrapper
 from garage.torch import global_device
 
 
@@ -65,8 +65,12 @@ class RL2PPO(RL2):
                  policy,
                  value_function,
                  episodes_per_trial,
+                 steps_per_epoch,
+                 n_epochs,
                  policy_lr=2.5e-4,
                  vf_lr=2.5e-4,
+                 policy_lr_warmup=False,
+                 vf_lr_warmup=False,
                  max_opt_epochs=10,
                  minibatch_size=64,
                  vf_optimizer=None,
@@ -86,17 +90,37 @@ class RL2PPO(RL2):
         if optimizer_args is None:
             optimizer_args = dict()
         
-        policy_optimizer = OptimizerWrapper(
-            (torch.optim.Adam, dict(lr=policy_lr)),
-            policy,
-            max_optimization_epochs=max_opt_epochs,
-            minibatch_size=minibatch_size)
-            
-        vf_optimizer = OptimizerWrapper(
-            (torch.optim.Adam, dict(lr=vf_lr)),
-            value_function,
-            max_optimization_epochs=max_opt_epochs,
-            minibatch_size=minibatch_size)
+        if policy_lr_warmup:
+            policy_optimizer = WarmupOptimizerWrapper(
+                (torch.optim.AdamW, dict(lr=policy_lr)),
+                policy,
+                max_optimization_epochs=max_opt_epochs,
+                minibatch_size=minibatch_size,
+                steps_per_epoch=steps_per_epoch,
+                n_epochs=n_epochs
+            )
+        else:
+            policy_optimizer = OptimizerWrapper(
+                (torch.optim.AdamW, dict(lr=policy_lr)),
+                policy,
+                max_optimization_epochs=max_opt_epochs,
+                minibatch_size=minibatch_size)
+
+        if vf_lr_warmup:
+            vf_optimizer = WarmupOptimizerWrapper(
+                (torch.optim.AdamW, dict(lr=vf_lr)),
+                policy,
+                max_optimization_epochs=max_opt_epochs,
+                minibatch_size=minibatch_size,
+                steps_per_epoch=steps_per_epoch,
+                n_epochs=n_epochs
+            )
+        else:
+            vf_optimizer = OptimizerWrapper(
+                (torch.optim.AdamW, dict(lr=vf_lr)),
+                value_function,
+                max_optimization_epochs=max_opt_epochs,
+                minibatch_size=minibatch_size)
 
         super().__init__(meta_batch_size=meta_batch_size,
                          task_sampler=task_sampler,

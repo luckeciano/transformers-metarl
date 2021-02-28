@@ -6,7 +6,7 @@ import numpy as np
 from garage.torch import global_device, np_to_torch
 import torch.nn.functional as F
 
-from garage.torch.modules import GaussianMLPModule, MLPModule
+from garage.torch.modules import GaussianMLPModule, MLPModule, GaussianMLPTwoHeadedModule, GaussianMLPIndependentStdModule
 from garage.torch.policies.stochastic_policy import StochasticPolicy
 from garage.torch.policies.memory_transformer.memory_transformer import MemoryTransformer
 
@@ -50,6 +50,7 @@ class GaussianMemoryTransformerPolicy(StochasticPolicy):
                  attn_type=0, #default attention
                  init_params=True,
                  gating="residual",
+                 policy_head_type="Default",
                  name='GaussianTransformerEncoderPolicy'):
         super().__init__(env_spec, name)
         self._obs_dim = env_spec.observation_space.flat_dim
@@ -89,22 +90,59 @@ class GaussianMemoryTransformerPolicy(StochasticPolicy):
         elif self._policy_head_input == "full_memory":
             self._policy_head_input_dim = (num_encoder_layers + 1) * d_model * mem_len
 
-        self._policy_head = GaussianMLPModule(
-            input_dim=self._policy_head_input_dim, 
-            output_dim=self._action_dim,
-            hidden_sizes=mlp_hidden_sizes,
-            hidden_nonlinearity=mlp_hidden_nonlinearity,
-            hidden_w_init=mlp_hidden_w_init,
-            hidden_b_init=mlp_hidden_b_init,
-            output_nonlinearity=mlp_output_nonlinearity,
-            output_w_init=mlp_output_w_init,
-            output_b_init=mlp_output_b_init,
-            learn_std=learn_std,
-            init_std=init_std,
-            min_std=min_std,
-            max_std=max_std,
-            std_parameterization=std_parameterization,
-            layer_normalization=layer_normalization)
+        if policy_head_type == "TwoHeaded":
+            self._policy_head = GaussianMLPTwoHeadedModule(
+                input_dim=self._policy_head_input_dim, 
+                output_dim=self._action_dim,
+                hidden_sizes=mlp_hidden_sizes,
+                hidden_nonlinearity=mlp_hidden_nonlinearity,
+                hidden_w_init=mlp_hidden_w_init,
+                hidden_b_init=mlp_hidden_b_init,
+                output_nonlinearity=mlp_output_nonlinearity,
+                output_w_init=mlp_output_w_init,
+                output_b_init=mlp_output_b_init,
+                learn_std=learn_std,
+                init_std=init_std,
+                min_std=min_std,
+                max_std=max_std,
+                std_parameterization=std_parameterization,
+                layer_normalization=layer_normalization
+            )
+        elif policy_head_type == "IndependentStd":
+            self._policy_head = GaussianMLPIndependentStdModule(
+                input_dim=self._policy_head_input_dim, 
+                output_dim=self._action_dim,
+                hidden_sizes=mlp_hidden_sizes,
+                hidden_nonlinearity=mlp_hidden_nonlinearity,
+                hidden_w_init=mlp_hidden_w_init,
+                hidden_b_init=mlp_hidden_b_init,
+                output_nonlinearity=mlp_output_nonlinearity,
+                output_w_init=mlp_output_w_init,
+                output_b_init=mlp_output_b_init,
+                learn_std=learn_std,
+                init_std=init_std,
+                min_std=min_std,
+                max_std=max_std,
+                std_parameterization=std_parameterization,
+                layer_normalization=layer_normalization
+            )
+        elif policy_head_type == "Default":
+            self._policy_head = GaussianMLPModule(
+                input_dim=self._policy_head_input_dim, 
+                output_dim=self._action_dim,
+                hidden_sizes=mlp_hidden_sizes,
+                hidden_nonlinearity=mlp_hidden_nonlinearity,
+                hidden_w_init=mlp_hidden_w_init,
+                hidden_b_init=mlp_hidden_b_init,
+                output_nonlinearity=mlp_output_nonlinearity,
+                output_w_init=mlp_output_w_init,
+                output_b_init=mlp_output_b_init,
+                learn_std=learn_std,
+                init_std=init_std,
+                min_std=min_std,
+                max_std=max_std,
+                std_parameterization=std_parameterization,
+                layer_normalization=layer_normalization)
 
         self._prev_observations = None
         self._prev_actions = None
@@ -301,3 +339,14 @@ class GaussianMemoryTransformerPolicy(StochasticPolicy):
     @property
     def memory_dim(self):
         return self._policy_head_input_dim
+
+    def to(self, device=None):
+        """Put all the networks within the model on device.
+
+        Args:
+            device (str): ID of GPU or CPU.
+
+        """
+        device = device or global_device()
+        for net in [self._obs_embedding, self._transformer_module, self._policy_head]:
+            net.to(device)
