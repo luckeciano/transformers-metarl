@@ -6,7 +6,7 @@ import numpy as np
 from garage.torch import global_device, np_to_torch
 import torch.nn.functional as F
 
-from garage.torch.modules import GaussianMLPModule, MLPModule
+from garage.torch.modules import GaussianMLPModule, MLPModule, TransformerEncoderLayerNoLN
 from garage.torch.policies.stochastic_policy import StochasticPolicy
 
 class PositionalEncoding(nn.Module):
@@ -97,6 +97,8 @@ class GaussianTransformerEncoderPolicy(StochasticPolicy):
                  activation='relu',
                  obs_horizon=75,
                  policy_head_input="latest_memory",
+                 tfixup=True,
+                 remove_ln=True,
                  name='GaussianTransformerEncoderPolicy'):
         super().__init__(env_spec, name)
         self._obs_dim = env_spec.observation_space.flat_dim
@@ -105,17 +107,10 @@ class GaussianTransformerEncoderPolicy(StochasticPolicy):
         self._d_model = d_model
         self._policy_head_input = policy_head_input
 
-        self._obs_embedding = MLPModule(
-            input_dim = self._obs_dim,
-            output_dim = d_model,
-            hidden_sizes = encoding_hidden_sizes,
-            hidden_nonlinearity=mlp_hidden_nonlinearity,
-            hidden_w_init=mlp_hidden_w_init,
-            hidden_b_init=mlp_hidden_b_init,
-            output_nonlinearity= encoding_non_linearity,
-            output_w_init=mlp_output_w_init,
-            output_b_init=mlp_output_b_init,
-            layer_normalization=layer_normalization
+        self._obs_embedding = nn.Linear(
+            in_features = self._obs_dim,
+            out_features = d_model,
+            bias=False
         )
 
         self._wm_positional_encoding = PositionalEncoding(
@@ -124,19 +119,55 @@ class GaussianTransformerEncoderPolicy(StochasticPolicy):
             max_len=self._obs_horizon,
         )
 
-        encoder_layers = nn.TransformerEncoderLayer(
-            d_model=d_model,
-            nhead=nhead,
-            dim_feedforward=dim_feedforward,
-            dropout=dropout,
-            activation=activation
-        )
+        if remove_ln:
+            encoder_layers = TransformerEncoderLayerNoLN(
+                d_model=d_model,
+                nhead=nhead,
+                dim_feedforward=dim_feedforward,
+                dropout=dropout,
+                activation=activation
+            )
+        else:
+            encoder_layers = nn.TransformerEncoderLayer(
+                d_model=d_model,
+                nhead=nhead,
+                dim_feedforward=dim_feedforward,
+                dropout=dropout,
+                activation=activation
+            )
 
         self._transformer_module = nn.TransformerEncoder(encoder_layers, num_encoder_layers)
 
         for p in self._transformer_module.parameters():
             if p.dim() > 1:
                 torch.nn.init.xavier_uniform_(p)
+
+        if tfixup:
+            for p in self._obs_embedding.parameters():
+                if p.dim() > 1:
+                    torch.nn.init.normal_(p, 0, d_model ** (- 1. / 2.))
+
+            temp_state_dic = {}
+            for name, param in self._obs_embedding.named_parameters():
+                if 'weight' in name:
+                    temp_state_dic[name] = ((9* num_encoder_layers) ** (- 1. / 4.)) * param
+
+            for name in self._obs_embedding.state_dict():
+                if name not in temp_state_dic:
+                    temp_state_dic[name] = self._obs_embedding.state_dict()[name]
+            self._obs_embedding.load_state_dict(temp_state_dic)    
+
+            temp_state_dic = {}
+            for name, param in self._transformer_module.named_parameters():
+                if any(s in name for s in ["linear1.weight", "linear2.weight", "self_attn.out_proj.weight"]):
+                    temp_state_dic[name] = (0.67 * (num_encoder_layers) ** (- 1. / 4.)) * param
+                elif "self_attn.in_proj_weight" in name:
+                    temp_state_dic[name] = (0.67 * (num_encoder_layers) ** (- 1. / 4.)) * (param * (2**0.5))
+
+            for name in self._transformer_module.state_dict():
+                if name not in temp_state_dic:
+                    temp_state_dic[name] = self._transformer_module.state_dict()[name]
+            self._transformer_module.load_state_dict(temp_state_dic)
 
         if self._policy_head_input == "latest_memory":
             self._policy_head_input_dim = d_model
@@ -223,7 +254,7 @@ class GaussianTransformerEncoderPolicy(StochasticPolicy):
             return torch.reshape(transformer_output, batch_shape + [self._policy_head_input_dim]), transformer_output.detach().cpu().numpy()
 
         curr_em = torch.gather(transformer_output, dim=1, index=curr_em_index)
-        final_shape_obs = batch_shape + [self._obs_embedding._output_dim]
+        final_shape_obs = batch_shape + [self._obs_embedding.out_features]
         curr_em = torch.reshape(curr_em, final_shape_obs) #get just the last hidden state as input for policy head
         curr_working_memo = torch.reshape(curr_working_memo, final_shape_obs)
         

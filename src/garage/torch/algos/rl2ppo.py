@@ -1,7 +1,7 @@
 """Proximal Policy Optimization for RL2."""
 from garage.torch.algos import RL2
 import torch
-from garage.torch.optimizers import OptimizerWrapper, WarmupOptimizerWrapper
+from garage.torch.optimizers import OptimizerWrapper, WarmupOptimizerWrapper, LRDecayOptimizerWrapper
 from garage.torch import global_device
 
 
@@ -69,8 +69,8 @@ class RL2PPO(RL2):
                  n_epochs,
                  policy_lr=2.5e-4,
                  vf_lr=2.5e-4,
-                 policy_lr_warmup=False,
-                 vf_lr_warmup=False,
+                 policy_lr_schedule="default",
+                 vf_lr_schedule="default",
                  max_opt_epochs=10,
                  minibatch_size=64,
                  vf_optimizer=None,
@@ -86,11 +86,12 @@ class RL2PPO(RL2):
                  entropy_method='no_entropy',
                  meta_evaluator=None,
                  n_epochs_per_eval=10,
+                 decay_epoch=500,
                  name='PPO'):
         if optimizer_args is None:
             optimizer_args = dict()
         
-        if policy_lr_warmup:
+        if policy_lr_schedule == "warmup":
             policy_optimizer = WarmupOptimizerWrapper(
                 (torch.optim.AdamW, dict(lr=policy_lr)),
                 policy,
@@ -99,28 +100,52 @@ class RL2PPO(RL2):
                 steps_per_epoch=steps_per_epoch,
                 n_epochs=n_epochs
             )
-        else:
+        elif policy_lr_schedule == "decay":
+            policy_optimizer = LRDecayOptimizerWrapper(
+                (torch.optim.AdamW, dict(lr=policy_lr)),
+                policy,
+                max_optimization_epochs=max_opt_epochs,
+                minibatch_size=minibatch_size,
+                steps_per_epoch=steps_per_epoch,
+                n_epochs=n_epochs,
+                decay_epoch=decay_epoch
+            )
+        elif policy_lr_schedule == "no_schedule":
             policy_optimizer = OptimizerWrapper(
                 (torch.optim.AdamW, dict(lr=policy_lr)),
                 policy,
                 max_optimization_epochs=max_opt_epochs,
                 minibatch_size=minibatch_size)
+        else:
+            raise NotImplementedError
 
-        if vf_lr_warmup:
+        if vf_lr_schedule == "warmup":
             vf_optimizer = WarmupOptimizerWrapper(
                 (torch.optim.AdamW, dict(lr=vf_lr)),
-                policy,
+                value_function,
                 max_optimization_epochs=max_opt_epochs,
                 minibatch_size=minibatch_size,
                 steps_per_epoch=steps_per_epoch,
                 n_epochs=n_epochs
             )
-        else:
+        elif vf_lr_schedule == "decay":
+            vf_optimizer = LRDecayOptimizerWrapper(
+                (torch.optim.AdamW, dict(lr=vf_lr)),
+                value_function,
+                max_optimization_epochs=max_opt_epochs,
+                minibatch_size=minibatch_size,
+                steps_per_epoch=steps_per_epoch,
+                n_epochs=n_epochs,
+                decay_epoch=decay_epoch
+            )
+        elif vf_lr_schedule == "no_schedule":
             vf_optimizer = OptimizerWrapper(
                 (torch.optim.AdamW, dict(lr=vf_lr)),
                 value_function,
                 max_optimization_epochs=max_opt_epochs,
                 minibatch_size=minibatch_size)
+        else:
+            raise NotImplementedError
 
         super().__init__(meta_batch_size=meta_batch_size,
                          task_sampler=task_sampler,

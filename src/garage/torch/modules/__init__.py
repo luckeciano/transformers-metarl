@@ -12,6 +12,7 @@ from garage.torch.modules.mlp_module import MLPModule
 from garage.torch.modules.multi_headed_mlp_module import MultiHeadedMLPModule
 # DiscreteCNNModule must go after MLPModule
 from garage.torch.modules.discrete_cnn_module import DiscreteCNNModule
+from garage.torch.modules.transformer_no_ln import TransformerEncoderLayerNoLN
 # yapf: enable
 
 __all__ = [
@@ -23,4 +24,5 @@ __all__ = [
     'GaussianMLPModule',
     'GaussianMLPIndependentStdModule',
     'GaussianMLPTwoHeadedModule',
+    'TransformerEncoderLayerNoLN'
 ]

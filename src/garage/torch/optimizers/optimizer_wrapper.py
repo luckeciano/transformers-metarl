@@ -89,3 +89,28 @@ class WarmupOptimizerWrapper(OptimizerWrapper):
         self._warmup_scheduler.dampen()
         self._optimizer.zero_grad()
         self._epoch += 1
+
+
+class LRDecayOptimizerWrapper(OptimizerWrapper):
+    def __init__(self,
+                 optimizer,
+                 module,
+                 n_epochs,
+                 steps_per_epoch,
+                 decay_epoch=500,
+                 max_optimization_epochs=1,
+                 min_lr_factor = 0.1, #final lr will be nominal_lr * min_lr_factor
+                 minibatch_size=None):
+        super().__init__(optimizer, module, max_optimization_epochs, minibatch_size)
+        assert decay_epoch < n_epochs
+
+        n_steps = n_epochs * steps_per_epoch
+        milestones = np.arange(decay_epoch * steps_per_epoch, n_steps, steps_per_epoch)
+        gamma = (min_lr_factor) ** (1 / len(milestones))
+        self._lr_scheduler = torch.optim.lr_scheduler.MultiStepLR(self._optimizer, milestones=milestones, gamma=gamma)
+        self._epoch = 0
+
+    def zero_grad(self):
+        self._lr_scheduler.step(self._epoch)
+        self._optimizer.zero_grad()
+        self._epoch += 1

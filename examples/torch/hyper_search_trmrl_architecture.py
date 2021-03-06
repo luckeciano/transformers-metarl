@@ -19,8 +19,8 @@ heads_dmodel = [(1, 4), (1, 16),(1, 32), (1, 64),
 encoder_decoder_layers = [2, 3, 4, 6, 8, 12]
 dropout = [0.0] # 0.1, 0.25, 0.5] #0.8]
 memory_size_list = [1, 5, 25, 50, 75, 100]
-policy_head_input_list = ["full_memory", "latest_memory"]
-attn_type_list = [0, 1]
+policy_head_input_list = ["latest_memory"] #"full_memory", 
+attn_type_list = [1]#0, 
 pre_lnorm_list = [True, False]
 init_params_list = [True, False]
 
