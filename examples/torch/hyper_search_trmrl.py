@@ -55,7 +55,7 @@ def trmrl_cmd(nheads_dmodel, layers, dropout_rate, wm_length, em_length,\
     " --minibatch_size=" + str(minibatch_size) + " --max_opt_epochs=" + str(max_opt_epochs)  + \
     " --policy_ent_coeff=" + str(entropy_hypers[1]) + \
     " --entropy_method=" + str(entropy_hypers[0]) + " --gpu_id=" + str(gpu_id) + \
-    " --architecture=" + str(architecture) + " --policy_head_type=" + str(policy_head_type) + " --init_std= " + str(init_std) + " --policy_head_input=" + str(policy_head_input) + \
+    " --architecture=" + str(architecture) + " --policy_head_type=" + str(policy_head_type) + " --init_std=" + str(init_std) + " --policy_head_input=" + str(policy_head_input) + \
     " --decay_epoch=" + str(decay_epoch)
 
     if center_adv:
