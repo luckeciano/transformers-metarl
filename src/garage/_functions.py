@@ -273,7 +273,9 @@ def log_performance(itr, batch, discount, prefix='Evaluation'):
             tabular.record('SuccessRate', np.mean(success))
 
     #TODO: Remove this check after hyper searchs
-    if itr >= 100 and np.mean(undiscounted_returns) < -300.0 and prefix == "Average": 
+    if np.mean(undiscounted_returns) < -450.0 and prefix == "Average":
+        raise Exception("Poor performance for halfcheetah.")
+    elif itr >= 100 and np.mean(undiscounted_returns) < -300.0 and prefix == "Average": 
         raise Exception("Poor performance for halfcheetah.")
     elif itr >= 200 and np.mean(undiscounted_returns) < -280.0 and prefix == "Average": 
         raise Exception("Poor performance for halfcheetah.")
