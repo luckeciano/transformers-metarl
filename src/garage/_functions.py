@@ -275,12 +275,12 @@ def log_performance(itr, batch, discount, prefix='Evaluation'):
     #TODO: Remove this check after hyper searchs
     if np.mean(undiscounted_returns) < -450.0 and prefix == "Average":
         raise Exception("Poor performance for halfcheetah.")
-    elif itr >= 100 and np.mean(undiscounted_returns) < -300.0 and prefix == "Average": 
-        raise Exception("Poor performance for halfcheetah.")
-    elif itr >= 200 and np.mean(undiscounted_returns) < -280.0 and prefix == "Average": 
-        raise Exception("Poor performance for halfcheetah.")
-    elif itr >= 300 and np.mean(undiscounted_returns) < -200.0 and prefix == "Average": 
-        raise Exception("Poor performance for halfcheetah.")
+    # elif itr >= 100 and np.mean(undiscounted_returns) < -300.0 and prefix == "Average": 
+    #     raise Exception("Poor performance for halfcheetah.")
+    # elif itr >= 200 and np.mean(undiscounted_returns) < -280.0 and prefix == "Average": 
+    #     raise Exception("Poor performance for halfcheetah.")
+    # elif itr >= 300 and np.mean(undiscounted_returns) < -200.0 and prefix == "Average": 
+    #     raise Exception("Poor performance for halfcheetah.")
 
 
     return undiscounted_returns
