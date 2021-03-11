@@ -121,8 +121,10 @@ def transformer_ppo_halfcheetah(ctxt, seed, max_episode_length, meta_batch_size,
                                     obs_horizon=wm_size,
                                     dim_feedforward=dim_ff,
                                     policy_head_input=policy_head_input,
+                                    policy_head_type=policy_head_type,
                                     tfixup=tfixup,
-                                    remove_ln=remove_ln)
+                                    remove_ln=remove_ln,
+                                    init_std=init_std)
     elif architecture == "Transformer":         
         policy = GaussianTransformerPolicy(name='policy',
                                     env_spec=env_spec,

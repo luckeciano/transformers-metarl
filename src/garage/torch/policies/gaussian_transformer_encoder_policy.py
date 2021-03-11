@@ -6,7 +6,7 @@ import numpy as np
 from garage.torch import global_device, np_to_torch
 import torch.nn.functional as F
 
-from garage.torch.modules import GaussianMLPModule, MLPModule, TransformerEncoderLayerNoLN
+from garage.torch.modules import GaussianMLPModule, MLPModule, TransformerEncoderLayerNoLN, GaussianMLPIndependentStdModule, GaussianMLPTwoHeadedModule
 from garage.torch.policies.stochastic_policy import StochasticPolicy
 
 class PositionalEncoding(nn.Module):
@@ -97,6 +97,7 @@ class GaussianTransformerEncoderPolicy(StochasticPolicy):
                  activation='relu',
                  obs_horizon=75,
                  policy_head_input="latest_memory",
+                 policy_head_type="Default",
                  tfixup=True,
                  remove_ln=True,
                  name='GaussianTransformerEncoderPolicy'):
@@ -176,22 +177,59 @@ class GaussianTransformerEncoderPolicy(StochasticPolicy):
         elif self._policy_head_input == "full_memory":
             self._policy_head_input_dim = d_model * self._obs_horizon
 
-        self._policy_head = GaussianMLPModule(
-            input_dim=self._policy_head_input_dim, 
-            output_dim=self._action_dim,
-            hidden_sizes=mlp_hidden_sizes,
-            hidden_nonlinearity=mlp_hidden_nonlinearity,
-            hidden_w_init=mlp_hidden_w_init,
-            hidden_b_init=mlp_hidden_b_init,
-            output_nonlinearity=mlp_output_nonlinearity,
-            output_w_init=mlp_output_w_init,
-            output_b_init=mlp_output_b_init,
-            learn_std=learn_std,
-            init_std=init_std,
-            min_std=min_std,
-            max_std=max_std,
-            std_parameterization=std_parameterization,
-            layer_normalization=layer_normalization)
+        if policy_head_type == "TwoHeaded":
+            self._policy_head = GaussianMLPTwoHeadedModule(
+                input_dim=self._policy_head_input_dim, 
+                output_dim=self._action_dim,
+                hidden_sizes=mlp_hidden_sizes,
+                hidden_nonlinearity=mlp_hidden_nonlinearity,
+                hidden_w_init=mlp_hidden_w_init,
+                hidden_b_init=mlp_hidden_b_init,
+                output_nonlinearity=mlp_output_nonlinearity,
+                output_w_init=mlp_output_w_init,
+                output_b_init=mlp_output_b_init,
+                learn_std=learn_std,
+                init_std=init_std,
+                min_std=min_std,
+                max_std=max_std,
+                std_parameterization=std_parameterization,
+                layer_normalization=layer_normalization
+            )
+        elif policy_head_type == "IndependentStd":
+            self._policy_head = GaussianMLPIndependentStdModule(
+                input_dim=self._policy_head_input_dim, 
+                output_dim=self._action_dim,
+                hidden_sizes=mlp_hidden_sizes,
+                hidden_nonlinearity=mlp_hidden_nonlinearity,
+                hidden_w_init=mlp_hidden_w_init,
+                hidden_b_init=mlp_hidden_b_init,
+                output_nonlinearity=mlp_output_nonlinearity,
+                output_w_init=mlp_output_w_init,
+                output_b_init=mlp_output_b_init,
+                learn_std=learn_std,
+                init_std=init_std,
+                min_std=min_std,
+                max_std=max_std,
+                std_parameterization=std_parameterization,
+                layer_normalization=layer_normalization
+            )
+        elif policy_head_type == "Default":
+            self._policy_head = GaussianMLPModule(
+                input_dim=self._policy_head_input_dim, 
+                output_dim=self._action_dim,
+                hidden_sizes=mlp_hidden_sizes,
+                hidden_nonlinearity=mlp_hidden_nonlinearity,
+                hidden_w_init=mlp_hidden_w_init,
+                hidden_b_init=mlp_hidden_b_init,
+                output_nonlinearity=mlp_output_nonlinearity,
+                output_w_init=mlp_output_w_init,
+                output_b_init=mlp_output_b_init,
+                learn_std=learn_std,
+                init_std=init_std,
+                min_std=min_std,
+                max_std=max_std,
+                std_parameterization=std_parameterization,
+                layer_normalization=layer_normalization)
 
         self.src_mask = None
 
