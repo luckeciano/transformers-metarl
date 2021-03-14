@@ -7,7 +7,7 @@ from garage.torch import set_gpu_mode
 
 from garage import wrap_experiment
 from garage.envs import GymEnv
-from garage.envs.mujoco.half_cheetah_vel_env import HalfCheetahVelEnv
+from garage.envs.metarl.half_cheetah_vel import HalfCheetahVelEnv
 from garage.experiment import task_sampler, MetaEvaluator, OnlineMetaEvaluator
 from garage.experiment.deterministic import set_seed
 from garage.sampler import LocalSampler
@@ -32,7 +32,16 @@ def count_parameters(model):
     print(f"Total Trainable Params: {total_params}")
     return total_params
 
+def get_env(env_name):
+    m = __import__("garage")
+    m = getattr(m, "envs")
+    m = getattr(m, "metarl")
+    return getattr(m, env_name)
+
 @click.command()
+@click.option('--env_name', default="HalfCheetahVelEnv")
+@click.option('--train_set_size', default=100)
+@click.option('--test_set_size', default=30)
 @click.option('--seed', default=1)
 @click.option('--max_episode_length', default=200)
 @click.option('--meta_batch_size', default=20)
@@ -58,7 +67,7 @@ def count_parameters(model):
 @click.option('--policy_ent_coeff', default=0.02)
 @click.option('--use_softplus_entropy', is_flag=True)
 @click.option('--stop_entropy_gradient', is_flag=True)
-@click.option('--entropy_method', default='max')
+@click.option('--entropy_method', default='regularized')
 @click.option('--share_network', is_flag=True) 
 @click.option('--architecture', default="Encoder")
 @click.option('--policy_head_input', default="latest_memory")
@@ -77,7 +86,7 @@ def count_parameters(model):
 @click.option('--remove_ln', is_flag=True)
 @click.option('--gpu_id', default=0)
 @wrap_experiment(snapshot_mode='gap', snapshot_gap=30)
-def transformer_ppo_halfcheetah(ctxt, seed, max_episode_length, meta_batch_size,
+def transformer_ppo_halfcheetah(ctxt, env_name, train_set_size, test_set_size, seed, max_episode_length, meta_batch_size,
                         n_epochs, episode_per_task,
                         wm_embedding_hidden_size, n_heads, d_model, layers, dropout,
                         wm_size, em_size, dim_ff, discount, gae_lambda, lr_clip_range, policy_lr,
@@ -101,13 +110,16 @@ def transformer_ppo_halfcheetah(ctxt, seed, max_episode_length, meta_batch_size,
     """
     set_seed(seed)
     trainer = Trainer(ctxt)
+    env_class = get_env(env_name)
+    env = env_class(task_set_size=train_set_size)
     tasks = task_sampler.SetTaskSampler(
-        HalfCheetahVelEnv,
+        env_class,
+        env=env,
         wrapper=lambda env, _: RL2Env(
             GymEnv(env, max_episode_length=max_episode_length)))
 
     env_spec = RL2Env(
-        GymEnv(HalfCheetahVelEnv(),
+        GymEnv(env_class(),
                 max_episode_length=max_episode_length)).spec
 
     if architecture == "Encoder":
@@ -171,8 +183,15 @@ def transformer_ppo_halfcheetah(ctxt, seed, max_episode_length, meta_batch_size,
 
     # count_parameters(value_function)
 
-    meta_evaluator = OnlineMetaEvaluator(test_task_sampler=tasks,
-                                        n_test_tasks=5,
+    test_env = env_class(task_set_size=test_set_size)
+    test_tasks = task_sampler.SetTaskSampler(
+        env_class,
+        env=test_env,
+        wrapper=lambda env, _: RL2Env(
+            GymEnv(env, max_episode_length=max_episode_length)))
+
+    meta_evaluator = OnlineMetaEvaluator(test_task_sampler=test_tasks,
+                                        n_test_tasks=test_set_size,
                                         worker_class=RL2Worker,
                                         worker_args=dict(n_episodes_per_trial=3))
     meta_evaluator = None
