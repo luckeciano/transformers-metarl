@@ -32,7 +32,14 @@ def count_parameters(model):
     print(f"Total Trainable Params: {total_params}")
     return total_params
 
+def get_env(env_name):
+    m = __import__("garage")
+    m = getattr(m, "envs")
+    m = getattr(m, "mujoco")
+    return getattr(m, env_name)
+
 @click.command()
+@click.option('--env_name', default="HalfCheetahVelEnv")
 @click.option('--seed', default=1)
 @click.option('--max_episode_length', default=200)
 @click.option('--meta_batch_size', default=20)
@@ -77,7 +84,7 @@ def count_parameters(model):
 @click.option('--remove_ln', is_flag=True)
 @click.option('--gpu_id', default=0)
 @wrap_experiment(snapshot_mode='gap', snapshot_gap=30)
-def transformer_ppo_halfcheetah(ctxt, seed, max_episode_length, meta_batch_size,
+def transformer_ppo_halfcheetah(ctxt, env_name, seed, max_episode_length, meta_batch_size,
                         n_epochs, episode_per_task,
                         wm_embedding_hidden_size, n_heads, d_model, layers, dropout,
                         wm_size, em_size, dim_ff, discount, gae_lambda, lr_clip_range, policy_lr,
@@ -101,13 +108,14 @@ def transformer_ppo_halfcheetah(ctxt, seed, max_episode_length, meta_batch_size,
     """
     set_seed(seed)
     trainer = Trainer(ctxt)
+    env_class = get_env(env_name)
     tasks = task_sampler.SetTaskSampler(
-        HalfCheetahVelEnv,
+        env_class,
         wrapper=lambda env, _: RL2Env(
             GymEnv(env, max_episode_length=max_episode_length)))
 
     env_spec = RL2Env(
-        GymEnv(HalfCheetahVelEnv(),
+        GymEnv(env_class(),
                 max_episode_length=max_episode_length)).spec
 
     if architecture == "Encoder":
