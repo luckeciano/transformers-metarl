@@ -86,7 +86,8 @@ class RL2PPO(RL2):
                  entropy_method='no_entropy',
                  meta_evaluator=None,
                  n_epochs_per_eval=10,
-                 decay_epoch=500,
+                 decay_epoch_init=500,
+                 decay_epoch_end=1000,
                  name='PPO'):
         if optimizer_args is None:
             optimizer_args = dict()
@@ -108,7 +109,8 @@ class RL2PPO(RL2):
                 minibatch_size=minibatch_size,
                 steps_per_epoch=steps_per_epoch,
                 n_epochs=n_epochs,
-                decay_epoch=decay_epoch
+                decay_epoch_init=decay_epoch_init,
+                decay_epoch_end=decay_epoch_end
             )
         elif policy_lr_schedule == "no_schedule":
             policy_optimizer = OptimizerWrapper(
@@ -136,7 +138,8 @@ class RL2PPO(RL2):
                 minibatch_size=minibatch_size,
                 steps_per_epoch=steps_per_epoch,
                 n_epochs=n_epochs,
-                decay_epoch=decay_epoch
+                decay_epoch_init=decay_epoch_init,
+                decay_epoch_end=decay_epoch_end
             )
         elif vf_lr_schedule == "no_schedule":
             vf_optimizer = OptimizerWrapper(

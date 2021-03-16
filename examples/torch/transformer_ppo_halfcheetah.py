@@ -79,7 +79,8 @@ def get_env(env_name):
 @click.option('--policy_head_type', default="Default")
 @click.option('--policy_lr_schedule', default="no_schedule")
 @click.option('--vf_lr_schedule', default="no_schedule")
-@click.option('--decay_epoch', default=500)
+@click.option('--decay_epoch_init', default=500)
+@click.option('--decay_epoch_end', default=1000)
 @click.option('--tfixup', is_flag=True)
 @click.option('--remove_ln', is_flag=True)
 @click.option('--gpu_id', default=0)
@@ -92,7 +93,7 @@ def transformer_ppo_halfcheetah(ctxt, env_name, seed, max_episode_length, meta_b
                         policy_ent_coeff, use_softplus_entropy, stop_entropy_gradient, entropy_method,
                         share_network, architecture, policy_head_input, dropatt, attn_type,
                         pre_lnorm, init_params, gating, init_std, learn_std, policy_head_type,
-                        policy_lr_schedule, vf_lr_schedule, decay_epoch, tfixup, remove_ln, gpu_id):
+                        policy_lr_schedule, vf_lr_schedule, decay_epoch_init, decay_epoch_end, tfixup, remove_ln, gpu_id):
     """Train PPO with HalfCheetah environment.
 
     Args:
@@ -209,7 +210,8 @@ def transformer_ppo_halfcheetah(ctxt, env_name, seed, max_episode_length, meta_b
                     meta_evaluator=meta_evaluator,
                     policy_lr_schedule=policy_lr_schedule,
                     vf_lr_schedule=vf_lr_schedule,
-                    decay_epoch=decay_epoch,
+                    decay_epoch_init=decay_epoch_init,
+                    decay_epoch_end=decay_epoch_end,
                     steps_per_epoch=steps_per_epoch,
                     n_epochs=n_epochs,
                     n_epochs_per_eval=15)
