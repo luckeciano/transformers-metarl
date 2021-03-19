@@ -100,6 +100,7 @@ class GaussianTransformerEncoderPolicy(StochasticPolicy):
                  policy_head_type="Default",
                  tfixup=True,
                  remove_ln=True,
+                 recurrent_policy=False,
                  name='GaussianTransformerEncoderPolicy'):
         super().__init__(env_spec, name)
         self._obs_dim = env_spec.observation_space.flat_dim
@@ -107,6 +108,7 @@ class GaussianTransformerEncoderPolicy(StochasticPolicy):
         self._obs_horizon = obs_horizon
         self._d_model = d_model
         self._policy_head_input = policy_head_input
+        self._recurrent_policy = recurrent_policy
 
         self._obs_embedding = nn.Linear(
             in_features = self._obs_dim,
@@ -230,10 +232,18 @@ class GaussianTransformerEncoderPolicy(StochasticPolicy):
                 max_std=max_std,
                 std_parameterization=std_parameterization,
                 layer_normalization=layer_normalization)
+        
+        if self._recurrent_policy:
+            self._memory_embedding = nn.Linear(
+                in_features = d_model * self._obs_horizon,
+                out_features = self._obs_dim,
+                bias=False
+            )
 
         self.src_mask = None
 
         self._prev_observations = None
+        self._last_hidden_state = None
         self._prev_actions = None
         self._episodic_memory_counter = None
         self._new_episode = None
@@ -263,7 +273,7 @@ class GaussianTransformerEncoderPolicy(StochasticPolicy):
 
         """
         policy_head_input, transformer_output = self.compute_memories(observations)
-        dist = self._policy_head(policy_head_input) 
+        dist = self._policy_head(policy_head_input)
         return (dist, dict(mean=dist.mean, log_std=(dist.variance**.5).log()), transformer_output)
 
     def compute_memories(self, observations):
@@ -301,6 +311,9 @@ class GaussianTransformerEncoderPolicy(StochasticPolicy):
             memories = curr_em
         elif self._policy_head_input == "mixed_memory":
             memories = torch.cat((curr_working_memo, curr_em), axis=-1)
+
+        if self._recurrent_policy:
+            transformer_output = self._memory_embedding(torch.reshape(transformer_output, batch_shape + [self._d_model * self._obs_horizon]))
             
         return memories, transformer_output.detach().cpu().numpy()
 
@@ -325,6 +338,7 @@ class GaussianTransformerEncoderPolicy(StochasticPolicy):
 
         self._prev_actions[do_resets] = 0.
         self._episodic_memory_counter = -1
+        self._last_hidden_state = None
 
     def reset_observations(self, do_resets=None):
         if do_resets is None:
@@ -375,11 +389,17 @@ class GaussianTransformerEncoderPolicy(StochasticPolicy):
                 self._state_include_action is True.
 
         """
+        if self._recurrent_policy and self._last_hidden_state is not None:
+            obs_idx = self._step - 1 if self._step - 1 < self._obs_horizon else self._obs_horizon - 1
+            self._prev_observations[:, obs_idx, :] = self._last_hidden_state
         observations = self._env_spec.observation_space.flatten_n(observations)
         observations = np.expand_dims(observations, axis=1)
         self._update_prev_observations(observations)
         encoder_input = np_to_torch(self._prev_observations)
         dist, info, hidden_states = self.forward(encoder_input)
+
+        if self._recurrent_policy:
+            self._last_hidden_state = hidden_states
         samples = dist.sample().cpu().numpy()
         self._prev_actions = samples
 

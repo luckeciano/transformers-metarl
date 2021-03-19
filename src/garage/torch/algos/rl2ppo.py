@@ -88,6 +88,7 @@ class RL2PPO(RL2):
                  n_epochs_per_eval=10,
                  decay_epoch_init=500,
                  decay_epoch_end=1000,
+                 min_lr_factor=0.1,
                  name='PPO'):
         if optimizer_args is None:
             optimizer_args = dict()
@@ -110,7 +111,8 @@ class RL2PPO(RL2):
                 steps_per_epoch=steps_per_epoch,
                 n_epochs=n_epochs,
                 decay_epoch_init=decay_epoch_init,
-                decay_epoch_end=decay_epoch_end
+                decay_epoch_end=decay_epoch_end,
+                min_lr_factor=min_lr_factor
             )
         elif policy_lr_schedule == "no_schedule":
             policy_optimizer = OptimizerWrapper(
@@ -139,7 +141,8 @@ class RL2PPO(RL2):
                 steps_per_epoch=steps_per_epoch,
                 n_epochs=n_epochs,
                 decay_epoch_init=decay_epoch_init,
-                decay_epoch_end=decay_epoch_end
+                decay_epoch_end=decay_epoch_end,
+                min_lr_factor=min_lr_factor
             )
         elif vf_lr_schedule == "no_schedule":
             vf_optimizer = OptimizerWrapper(

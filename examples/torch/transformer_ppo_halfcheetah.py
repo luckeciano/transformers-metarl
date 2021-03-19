@@ -50,7 +50,7 @@ def get_env(env_name):
 @click.option('--d_model', default=4)
 @click.option('--layers', default=2)
 @click.option('--dropout', default=0.0)
-@click.option('--wm_size', default=1)
+@click.option('--wm_size', default=2)
 @click.option('--em_size', default=1)
 @click.option('--dim_ff', default=16)
 @click.option('--discount', default=0.99)
@@ -65,7 +65,7 @@ def get_env(env_name):
 @click.option('--policy_ent_coeff', default=0.02)
 @click.option('--use_softplus_entropy', is_flag=True)
 @click.option('--stop_entropy_gradient', is_flag=True)
-@click.option('--entropy_method', default='max')
+@click.option('--entropy_method', default='regularized')
 @click.option('--share_network', is_flag=True) 
 @click.option('--architecture', default="Encoder")
 @click.option('--policy_head_input', default="latest_memory")
@@ -81,8 +81,10 @@ def get_env(env_name):
 @click.option('--vf_lr_schedule', default="no_schedule")
 @click.option('--decay_epoch_init', default=500)
 @click.option('--decay_epoch_end', default=1000)
+@click.option('--min_lr_factor', default=0.1)
 @click.option('--tfixup', is_flag=True)
 @click.option('--remove_ln', is_flag=True)
+@click.option('--recurrent_policy', is_flag=True)
 @click.option('--gpu_id', default=0)
 @wrap_experiment(snapshot_mode='gap', snapshot_gap=30)
 def transformer_ppo_halfcheetah(ctxt, env_name, seed, max_episode_length, meta_batch_size,
@@ -93,7 +95,8 @@ def transformer_ppo_halfcheetah(ctxt, env_name, seed, max_episode_length, meta_b
                         policy_ent_coeff, use_softplus_entropy, stop_entropy_gradient, entropy_method,
                         share_network, architecture, policy_head_input, dropatt, attn_type,
                         pre_lnorm, init_params, gating, init_std, learn_std, policy_head_type,
-                        policy_lr_schedule, vf_lr_schedule, decay_epoch_init, decay_epoch_end, tfixup, remove_ln, gpu_id):
+                        policy_lr_schedule, vf_lr_schedule, decay_epoch_init, decay_epoch_end, min_lr_factor,
+                        recurrent_policy, tfixup, remove_ln, gpu_id):
     """Train PPO with HalfCheetah environment.
 
     Args:
@@ -133,7 +136,8 @@ def transformer_ppo_halfcheetah(ctxt, env_name, seed, max_episode_length, meta_b
                                     policy_head_type=policy_head_type,
                                     tfixup=tfixup,
                                     remove_ln=remove_ln,
-                                    init_std=init_std)
+                                    init_std=init_std,
+                                    recurrent_policy=recurrent_policy)
     elif architecture == "Transformer":         
         policy = GaussianTransformerPolicy(name='policy',
                                     env_spec=env_spec,
@@ -212,6 +216,7 @@ def transformer_ppo_halfcheetah(ctxt, env_name, seed, max_episode_length, meta_b
                     vf_lr_schedule=vf_lr_schedule,
                     decay_epoch_init=decay_epoch_init,
                     decay_epoch_end=decay_epoch_end,
+                    min_lr_factor=min_lr_factor,
                     steps_per_epoch=steps_per_epoch,
                     n_epochs=n_epochs,
                     n_epochs_per_eval=15)
