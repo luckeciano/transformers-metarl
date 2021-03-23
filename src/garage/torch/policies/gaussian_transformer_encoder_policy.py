@@ -391,7 +391,7 @@ class GaussianTransformerEncoderPolicy(StochasticPolicy):
         """
         if self._recurrent_policy and self._last_hidden_state is not None:
             obs_idx = self._step - 1 if self._step - 1 < self._obs_horizon else self._obs_horizon - 1
-            self._prev_observations[:, obs_idx, :] = self._last_hidden_state
+            self._prev_observations[:, obs_idx, :] = np.copy(self._last_hidden_state)
         observations = self._env_spec.observation_space.flatten_n(observations)
         observations = np.expand_dims(observations, axis=1)
         self._update_prev_observations(observations)
