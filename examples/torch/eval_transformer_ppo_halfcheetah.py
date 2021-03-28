@@ -84,15 +84,13 @@ def rollout(env,
         if pause_per_frame is not None:
             time.sleep(pause_per_frame)
         a, agent_info, _, _ = agent.get_action(last_obs)
-        #obs_emb, wm_emb, em_emb = agent.compute_current_embeddings()
+        obs_emb, em_emb = agent.compute_current_embeddings()
         #attn_weights, index_memory = agent.compute_attention_weights()
         #agent_info["attention"] = create_attention_dict(attn_weights, index_memory, episode_length)
-        #agent_info["obs_emb"] = obs_emb
-        #agent_info["wm_emb"] = wm_emb
-        #agent_info["em_emb"] = em_emb
+        agent_info["obs_emb"] = obs_emb
+        agent_info["em_emb"] = em_emb
         if deterministic and 'mean' in agent_info:
             a = agent_info['mean']
-        print(a)
         es = env.step(a)
         env_steps.append(es)
         observations.append(last_obs)
@@ -112,36 +110,50 @@ def rollout(env,
         dones=np.array([es.terminal for es in env_steps]),
     )
 
+def get_env(env_name):
+    m = __import__("garage")
+    m = getattr(m, "envs")
+    m = getattr(m, "mujoco")
+    return getattr(m, env_name)
+
 @click.command()
-@click.option('--path', default='/data/transformer-metarl/garage/examples/torch/data/local/experiment/transformer_ppo_halfcheetah_44')
-def transformer_ppo_halfcheetah(path):
+@click.option('--path', default='/data/transformer-metarl/garage/examples/torch/data/local/experiment/transformer_ppo_halfcheetah_241')
+@click.option('--env_name', default="HalfCheetahVelEnv")
+def transformer_ppo_halfcheetah(path, env_name):
     """Eval policy with HalfCheetah environment.
     """
     snapshotter = Snapshotter()
-    data = snapshotter.load(path)
+    data = snapshotter.load(path, itr=1200)
     # tasks = task_sampler.SetTaskSampler(
     #     HalfCheetahVelEnv,
     #     wrapper=lambda env, _: RL2Env(
     #         GymEnv(env, max_episode_length=200)))
 
     policy = data['algo'].policy
-
     if torch.cuda.is_available():
         set_gpu_mode(True, gpu_id=0)
     else:
         set_gpu_mode(False)
+
     # algo.to()
-    obs_emb_file = open("embeddings/obs_embeddings.tsv", "ab")
-    wm_emb_file = open("embeddings/wm_embeddings.tsv", "ab")
-    em_emb_file = open("embeddings/em_embeddings.tsv", "ab")
-    metadata_file = open("embeddings/metadata.tsv", "ab")
-    for velocity in np.arange(0.0, 2.01, 0.5):
-        task = {'velocity': velocity}
+
+    env_class = get_env(env_name)
+    env = RL2Env(GymEnv(env_class(), max_episode_length=200))
+    tasks = env.sample_tasks(num_tasks=1)
+    episodes_per_trial=2
+
+    obs_emb_file = open("embeddings/obs_embeddings_{0}.tsv".format(env_name), "ab")
+    em_emb_file = open("embeddings/em_embeddings_{0}.tsv".format(env_name), "ab")
+    metadata_file = open("embeddings/metadata_{0}.tsv".format(env_name), "ab")
+    for task in tasks:
+        task_id = list(task.values())
+        env.set_task(task)
         policy.reset()
-        policy.reset_observations()
-        env = RL2Env(GymEnv(HalfCheetahVelEnv(task), max_episode_length=200))
-        eps = rollout(env, policy, animated=True, deterministic=False)
         t = 0
+        for ep in range(episodes_per_trial):
+            policy.reset_observations()
+            eps = rollout(env, policy, animated=False, deterministic=True)
+        
         #attn_dict = eps["agent_infos"]["attention"][0]
         #for i in range(attn_dict['weights'].shape[0]):
         #    attn_weights = attn_dict['weights'][i]
@@ -150,17 +162,15 @@ def transformer_ppo_halfcheetah(path):
         #    x_lb = attn_dict['x_label'][i]
         #    y_lb = attn_dict['y_label'][i]
         #    plot_attention(attn_weights, x_lb, y_lb, title, "./visualization")
-        #for obs_emb, wm_emb, em_emb in zip(eps["agent_infos"]["obs_emb"], eps["agent_infos"]["wm_emb"], eps["agent_infos"]["em_emb"]):
-        #    np.savetxt(obs_emb_file, obs_emb.detach().cpu().numpy(), delimiter='\t')
-        #    np.savetxt(wm_emb_file, wm_emb.detach().cpu().numpy(), delimiter='\t')
-        #    # np.savetxt(em_emb_file, np.array([0.0, em_emb.detach().cpu().numpy()])[np.newaxis], delimiter='\t')
-        #    np.savetxt(metadata_file, np.array([t, velocity])[np.newaxis], delimiter='\t')
-        #    t = t + 1
-        print(sum(eps['rewards']))
+            for obs_emb, em_emb in zip(eps["agent_infos"]["obs_emb"], eps["agent_infos"]["em_emb"]):
+                np.savetxt(obs_emb_file, obs_emb.detach().cpu().numpy(), delimiter='\t')
+                # np.savetxt(wm_emb_file, wm_emb.detach().cpu().numpy(), delimiter='\t')
+                np.savetxt(em_emb_file, em_emb.detach().cpu().numpy(), delimiter='\t')
+                np.savetxt(metadata_file, np.array([t] + task_id)[np.newaxis], delimiter='\t')
+                t = t + 1
+            print(sum(eps['rewards']))
     obs_emb_file.close()
-    wm_emb_file.close()
     em_emb_file.close()
     metadata_file.close()
-        #env.visualize()
 
 transformer_ppo_halfcheetah()

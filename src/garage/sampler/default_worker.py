@@ -97,7 +97,7 @@ class DefaultWorker(Worker):
 
         self.agent.reset()
 
-    def step_episode(self):
+    def step_episode(self, deterministic=False):
         """Take a single time-step in the current episode.
 
         Returns:
@@ -106,7 +106,7 @@ class DefaultWorker(Worker):
 
         """
         if self._eps_length < self._max_episode_length:
-            a, agent_info = self.agent.get_action(self._prev_obs)
+            a, agent_info = self.agent.get_action(self._prev_obs, deterministic)
             es = self.env.step(a)
             self._observations.append(self._prev_obs)
             self._env_steps.append(es)

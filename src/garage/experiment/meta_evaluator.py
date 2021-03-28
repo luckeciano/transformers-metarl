@@ -171,6 +171,7 @@ class OnlineMetaEvaluator:
         self._eval_itr = 0
         self._prefix = prefix
         self._test_task_names = test_task_names
+        self._episodes_per_trial = worker_args['n_episodes_per_trial'] if 'n_episodes_per_trial' in worker_args else 1
         self._test_sampler = None
         self._max_episode_length = None
 
@@ -205,14 +206,15 @@ class OnlineMetaEvaluator:
 
         eps = self._test_sampler.obtain_samples(
             self._eval_itr,
-            self._max_episode_length * self._n_test_episodes * self._n_test_tasks,
+            self._max_episode_length * self._n_test_episodes * self._episodes_per_trial * self._n_test_tasks,
             agent_update=algo.get_exploration_policy(),
-            env_update=env_updates
+            env_update=env_updates,
+            deterministic=True
         )
 
-        episodes_by_order = self._organize_episodes_by_batch_idx(eps)
+        episodes_by_order = self._cluster_by_episode_number(eps)
 
-        for i in range(self._n_test_episodes):
+        for i in range(self._episodes_per_trial):
             with tabular.prefix(self._prefix + "_" + str(i) + '/' if self._prefix else str(i)):
                 log_multitask_performance(
                     self._eval_itr,
@@ -224,11 +226,10 @@ class OnlineMetaEvaluator:
         logger.log('Finished meta-testing...')     
 
 
-    def _organize_episodes_by_batch_idx(self, episodes):
+    def _cluster_by_episode_number(self, episodes):
         episode_idx = collections.defaultdict(list)
         episode_list = episodes.split()
-        for task_num in range(self._n_test_tasks):
-            for episode_num in range(self._n_test_episodes):
-                episode_idx[episode_num].append(episode_list[task_num * self._n_test_episodes + episode_num])
-
+        for episode_num in range(self._episodes_per_trial):
+            for task_num in range(self._n_test_tasks):
+                episode_idx[episode_num].append(episode_list[self._episodes_per_trial * task_num + episode_num])
         return episode_idx

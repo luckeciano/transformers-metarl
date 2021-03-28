@@ -348,7 +348,7 @@ class GaussianTransformerEncoderPolicy(StochasticPolicy):
         self._episodic_memory_counter += 1
         self._new_episode = True
 
-    def get_action(self, observation):
+    def get_action(self, observation, deterministic=False):
         """Get single action from this policy for the input observation.
 
         Args:
@@ -368,7 +368,12 @@ class GaussianTransformerEncoderPolicy(StochasticPolicy):
 
         """
         actions, agent_infos, aug_obs, prev_hiddens = self.get_actions([observation])
-        return actions[0], {k: v[0] for k, v in agent_infos.items()}, aug_obs, prev_hiddens
+
+        action = actions[0]        
+        if deterministic:
+            action = agent_infos['mean'][0]
+
+        return action, {k: v[0] for k, v in agent_infos.items()}, aug_obs, prev_hiddens
 
     def get_actions(self, observations):
         """Get multiple actions from this policy for the input observations.
@@ -454,13 +459,12 @@ class GaussianTransformerEncoderPolicy(StochasticPolicy):
         transformer_output = self._transformer_module(wm_pos) #(T, B, target_output)
         transformer_output = transformer_output.permute(1, 0, 2) # going back to batch first
 
-        # Compute policy head input
         curr_em = torch.gather(transformer_output, dim=1, index=curr_em_index)
-        final_shape_obs = batch_shape + [self._obs_embedding._output_dim]
+        final_shape_obs = batch_shape + [self._obs_embedding.out_features]
         curr_em = torch.reshape(curr_em, final_shape_obs) #get just the last hidden state as input for policy head
         curr_working_memo = torch.reshape(curr_working_memo, final_shape_obs)
         
-        return curr_working_memo, curr_em, curr_em
+        return curr_working_memo, curr_em
 
     def compute_attention_weights(self):
         # Get original shapes and reshape tensors to have a single batch dimension

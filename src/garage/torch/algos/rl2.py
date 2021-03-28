@@ -152,7 +152,7 @@ class RL2Worker(DefaultWorker):
         self._eps_length = 0
         self._prev_obs = self.env.reset()[0]
 
-    def rollout(self):
+    def rollout(self, deterministic=False):
         """Sample a single episode of the agent in the environment.
 
         Returns:
@@ -163,13 +163,13 @@ class RL2Worker(DefaultWorker):
         for _ in range(self._n_episodes_per_trial):
             self.agent.reset_observations()
             self.start_episode()
-            while not self.step_episode():
+            while not self.step_episode(deterministic):
                 pass
         self._agent_infos['batch_idx'] = np.full(len(self._env_steps),
                                                  self._worker_number)
         return self.collect_episode()
 
-    def step_episode(self):
+    def step_episode(self, deterministic=False):
         """Take a single time-step in the current episode.
 
         Returns:
@@ -178,7 +178,7 @@ class RL2Worker(DefaultWorker):
 
         """
         if self._eps_length < self._max_episode_length:
-            a, agent_info, aug_obs, hidden_states = self.agent.get_action(self._prev_obs) #augment_obs = obs + hidden_states
+            a, agent_info, aug_obs, hidden_states = self.agent.get_action(self._prev_obs, deterministic) #augment_obs = obs + hidden_states
             es = self.env.step(a)
             self._observations.append(self._prev_obs)
             self._augmented_obs.append(np.copy(aug_obs))
@@ -275,7 +275,7 @@ class NoResetPolicy:
     def reset(self):
         """Environment reset function."""
 
-    def get_action(self, obs):
+    def get_action(self, obs, deterministic=False):
         """Get a single action from this policy for the input observation.
 
         Args:
@@ -286,7 +286,7 @@ class NoResetPolicy:
             dict: Agent into
 
         """
-        return self._policy.get_action(obs)
+        return self._policy.get_action(obs, deterministic)
 
     def reset_observations(self):
         self._policy.reset_observations()

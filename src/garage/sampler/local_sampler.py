@@ -88,7 +88,7 @@ class LocalSampler(Sampler):
             worker.update_agent(agent_up)
             worker.update_env(env_up)
 
-    def obtain_samples(self, itr, num_samples, agent_update, env_update=None):
+    def obtain_samples(self, itr, num_samples, agent_update, env_update=None, deterministic=False):
         """Collect at least a given number transitions (timesteps).
 
         Args:
@@ -114,7 +114,7 @@ class LocalSampler(Sampler):
         completed_samples = 0
         while True:
             for worker in self._workers:
-                batch = worker.rollout()
+                batch = worker.rollout(deterministic)
                 completed_samples += len(batch.actions)
                 batches.append(batch)
                 if completed_samples >= num_samples:
