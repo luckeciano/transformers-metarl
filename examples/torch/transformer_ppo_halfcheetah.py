@@ -43,7 +43,7 @@ def get_env(env_name):
 @click.option('--seed', default=1)
 @click.option('--max_episode_length', default=200)
 @click.option('--meta_batch_size', default=20)
-@click.option('--n_epochs', default=1500)
+@click.option('--n_epochs', default=5000)
 @click.option('--episode_per_task', default=2)
 @click.option('--wm_embedding_hidden_size', default=32)
 @click.option('--n_heads', default=1)
