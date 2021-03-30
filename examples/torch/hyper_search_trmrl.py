@@ -95,10 +95,11 @@ def trmrl_cmd(env_name, nheads_dmodel, layers, dropout_rate, wm_length, em_lengt
 @click.command()
 @click.option('--gpu_id', default=0)
 @click.option('--env_name', default='HalfCheetahDirEnv')
-def run_search(gpu_id, env_name):
+@click.option('--num_jobs', default=10)
+def run_search(gpu_id, env_name, num_jobs):
     print("GPU ID: " + str(gpu_id))
     process_list = []
-    MAX_RUNNING_PROCESSES = 8
+    MAX_RUNNING_PROCESSES = num_jobs
     while True:
         print("New iteration. Current number of processes in list: " + str(len(process_list)))
         rm_p = []
