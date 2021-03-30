@@ -46,13 +46,18 @@ use_softplus_entropy_list = [True, False]
 stop_entropy_gradient_list = [True, False]
 policy_head_type_list = ['Default', 'TwoHeaded', 'IndependentStd']
 remove_ln = [True, False]
+init_params_list = [True, False]
+pre_lnorm_list = [True, False]
+share_network_list =[True, False]
+tfixup_list = [True]
 init_std_list = [0.1, 0.2, 0.5, 1.0]
 decay_epoch_list = [100, 250, 500, 750]
 
 
 def trmrl_cmd(env_name, nheads_dmodel, layers, dropout_rate, wm_length, em_length,\
         discount, gae_lambda, lr_clip_range, lr, vf_lr, minibatch_size, max_opt_epochs, center_adv, positive_adv, entropy_hypers, \
-        use_softplus_entropy, stop_entropy_gradient, architecture, policy_head_type, init_std, policy_head_input, decay_epoch, gpu_id):
+        use_softplus_entropy, stop_entropy_gradient, architecture, policy_head_type, init_std, policy_head_input, decay_epoch, \
+        init_params, pre_lnorm, share_network, tfixup, gpu_id):
     cmd = "./transformer_ppo_halfcheetah.py --env_name=" + str(env_name) + \
     " --n_heads=" + str(nheads_dmodel[0]) + " --d_model=" + str(nheads_dmodel[1]) + " --layers=" + str(layers) + \
     " --dropout=" + str(dropout_rate) + " --wm_size=" + str(wm_length) + " --em_size=" + str(em_length) + " --dim_ff=" + str(4 * nheads_dmodel[1]) + \
@@ -61,7 +66,8 @@ def trmrl_cmd(env_name, nheads_dmodel, layers, dropout_rate, wm_length, em_lengt
     " --minibatch_size=" + str(minibatch_size) + " --max_opt_epochs=" + str(max_opt_epochs)  + \
     " --policy_ent_coeff=" + str(entropy_hypers[1]) + \
     " --entropy_method=" + str(entropy_hypers[0]) + " --gpu_id=" + str(gpu_id) + \
-    " --architecture=" + str(architecture) + " --policy_head_type=" + str(policy_head_type) + " --init_std=" + str(init_std) + " --policy_head_input=" + str(policy_head_input)
+    " --architecture=" + str(architecture) + " --policy_head_type=" + str(policy_head_type) + " --init_std=" + str(init_std) + " --policy_head_input=" + str(policy_head_input) + \
+    " --decay_epoch_init=" + str(decay_epoch)
 
     if center_adv:
         cmd += " --center_adv"
@@ -73,6 +79,14 @@ def trmrl_cmd(env_name, nheads_dmodel, layers, dropout_rate, wm_length, em_lengt
         cmd += " --stop_entropy_gradient"
     if remove_ln:
         cmd += " --remove_ln"
+    if pre_lnorm:
+        cmd += " --pre_lnorm"
+    if init_params:
+        cmd += " --init_params"
+    if share_network:
+        cmd += " --share_network"
+    if tfixup:
+        cmd += " --tfixup"
 
     print(cmd)
 
@@ -114,7 +128,8 @@ def run_search(gpu_id, env_name):
                 random.choice(discount_list), random.choice(gae_lambda_list), random.choice(lr_clip_range_list), random.choice(lr_list), random.choice(vf_lr_list), \
                 random.choice(minibatch_size_list), random.choice(max_opt_epochs_list), random.choice(center_adv_list), random.choice(positive_adv_list),\
                 random.choice(entropy_hypers_list), random.choice(use_softplus_entropy_list), random.choice(stop_entropy_gradient_list), \
-                random.choice(architecture_list), random.choice(policy_head_type_list), random.choice(init_std_list), random.choice(policy_head_input_list), random.choice(decay_epoch_list), gpu_id)
+                random.choice(architecture_list), random.choice(policy_head_type_list), random.choice(init_std_list), random.choice(policy_head_input_list), random.choice(decay_epoch_list), \
+                random.choice(init_params_list), random.choice(pre_lnorm_list), random.choice(share_network_list), random.choice(tfixup_list), gpu_id)
             p = subprocess.Popen(shlex.split(cmd))
             time.sleep(10)
             process_list.append(p)
