@@ -117,13 +117,13 @@ def get_env(env_name):
     return getattr(m, env_name)
 
 @click.command()
-@click.option('--path', default='/data/transformer-metarl/garage/examples/torch/data/local/experiment/transformer_ppo_halfcheetah_241')
-@click.option('--env_name', default="HalfCheetahVelEnv")
+@click.option('--path', default='/data/transformer-metarl/garage/examples/torch/data/local/experiment/transformer_ppo_halfcheetah_247')
+@click.option('--env_name', default="HalfCheetahDirEnv")
 def transformer_ppo_halfcheetah(path, env_name):
     """Eval policy with HalfCheetah environment.
     """
     snapshotter = Snapshotter()
-    data = snapshotter.load(path, itr=1200)
+    data = snapshotter.load(path, itr=2490)
     # tasks = task_sampler.SetTaskSampler(
     #     HalfCheetahVelEnv,
     #     wrapper=lambda env, _: RL2Env(
@@ -139,7 +139,16 @@ def transformer_ppo_halfcheetah(path, env_name):
 
     env_class = get_env(env_name)
     env = RL2Env(GymEnv(env_class(), max_episode_length=200))
-    tasks = env.sample_tasks(num_tasks=1)
+    # tasks = [
+    #     {'velocity': 0.0},
+    #     {'velocity': 0.5},
+    #     {'velocity': 1.0},
+    #     {'velocity': 1.5},
+    #     {'velocity': 2.0},
+    #     {'velocity': 2.5},
+    #     {'velocity': 3.0}
+    # ]
+    tasks = env.sample_tasks(num_tasks=2)
     episodes_per_trial=2
 
     obs_emb_file = open("embeddings/obs_embeddings_{0}.tsv".format(env_name), "ab")
@@ -163,6 +172,7 @@ def transformer_ppo_halfcheetah(path, env_name):
         #    y_lb = attn_dict['y_label'][i]
         #    plot_attention(attn_weights, x_lb, y_lb, title, "./visualization")
             for obs_emb, em_emb in zip(eps["agent_infos"]["obs_emb"], eps["agent_infos"]["em_emb"]):
+                # if t >= 380:
                 np.savetxt(obs_emb_file, obs_emb.detach().cpu().numpy(), delimiter='\t')
                 # np.savetxt(wm_emb_file, wm_emb.detach().cpu().numpy(), delimiter='\t')
                 np.savetxt(em_emb_file, em_emb.detach().cpu().numpy(), delimiter='\t')

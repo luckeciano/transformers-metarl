@@ -8,6 +8,7 @@ import gym
 import numpy as np
 
 from garage import Environment, EnvSpec, EnvStep, StepType
+from garage import rand_param_envs
 
 # The gym environments using one of the packages in the following lists as
 # entry points don't close their viewer windows.
@@ -135,6 +136,8 @@ class GymEnv(Environment):
         if isinstance(env, str):
             self._env = gym.make(env)
         elif isinstance(env, gym.Env):
+            self._env = env
+        elif isinstance(env, rand_param_envs.gym.Env):
             self._env = env
         else:
             raise ValueError('GymEnv can take env as either a string, '

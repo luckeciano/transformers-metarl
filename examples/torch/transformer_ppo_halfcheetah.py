@@ -8,7 +8,7 @@ from garage.torch import set_gpu_mode
 from garage import wrap_experiment
 from garage.envs import GymEnv
 from garage.envs.mujoco.half_cheetah_vel_env import HalfCheetahVelEnv
-from garage.experiment import task_sampler, MetaEvaluator, OnlineMetaEvaluator
+from garage.experiment import task_sampler, MetaEvaluator, OnlineMetaEvaluator, Snapshotter
 from garage.experiment.deterministic import set_seed
 from garage.sampler import LocalSampler
 from garage.trainer import Trainer
@@ -34,12 +34,16 @@ def count_parameters(model):
 
 def get_env(env_name):
     m = __import__("garage")
+    if env_name == "Walker2DRandParamsEnv":
+        m = getattr(m, "rand_param_envs")
+        m = getattr(m, "walker2d_rand_params")
+        return getattr(m, env_name)
     m = getattr(m, "envs")
     m = getattr(m, "mujoco")
     return getattr(m, env_name)
 
 @click.command()
-@click.option('--env_name', default="HalfCheetahVelEnv")
+@click.option('--env_name', default="Walker2DRandParamsEnv")
 @click.option('--seed', default=1)
 @click.option('--max_episode_length', default=200)
 @click.option('--meta_batch_size', default=20)
@@ -85,6 +89,8 @@ def get_env(env_name):
 @click.option('--tfixup', is_flag=True)
 @click.option('--remove_ln', is_flag=True)
 @click.option('--recurrent_policy', is_flag=True)
+@click.option('--pretrained_dir', default=None)
+@click.option('--pretrained_epoch', default=4980)
 @click.option('--gpu_id', default=0)
 @wrap_experiment(snapshot_mode='gap', snapshot_gap=30)
 def transformer_ppo_halfcheetah(ctxt, env_name, seed, max_episode_length, meta_batch_size,
@@ -96,7 +102,7 @@ def transformer_ppo_halfcheetah(ctxt, env_name, seed, max_episode_length, meta_b
                         share_network, architecture, policy_head_input, dropatt, attn_type,
                         pre_lnorm, init_params, gating, init_std, learn_std, policy_head_type,
                         policy_lr_schedule, vf_lr_schedule, decay_epoch_init, decay_epoch_end, min_lr_factor,
-                        recurrent_policy, tfixup, remove_ln, gpu_id):
+                        recurrent_policy, tfixup, remove_ln, pretrained_dir, pretrained_epoch, gpu_id):
     """Train PPO with HalfCheetah environment.
 
     Args:
@@ -111,6 +117,15 @@ def transformer_ppo_halfcheetah(ctxt, env_name, seed, max_episode_length, meta_b
 
     """
     set_seed(seed)
+
+    policy = None
+    value_function = None
+    if pretrained_dir is not None:
+        snapshotter = Snapshotter()
+        data = snapshotter.load(pretrained_dir, itr=pretrained_epoch)
+        policy = data['algo'].policy
+        value_function = data['algo'].value_function
+    
     trainer = Trainer(ctxt)
     env_class = get_env(env_name)
     tasks = task_sampler.SetTaskSampler(
@@ -137,7 +152,7 @@ def transformer_ppo_halfcheetah(ctxt, env_name, seed, max_episode_length, meta_b
                                     tfixup=tfixup,
                                     remove_ln=remove_ln,
                                     init_std=init_std,
-                                    recurrent_policy=recurrent_policy)
+                                    recurrent_policy=recurrent_policy) if policy is None else policy
     elif architecture == "Transformer":         
         policy = GaussianTransformerPolicy(name='policy',
                                     env_spec=env_spec,
@@ -149,7 +164,7 @@ def transformer_ppo_halfcheetah(ctxt, env_name, seed, max_episode_length, meta_b
                                     dropout=dropout,
                                     obs_horizon=wm_size,
                                     hidden_horizon=em_size,
-                                    dim_feedforward=dim_ff)
+                                    dim_feedforward=dim_ff) if policy is None else policy
     elif architecture == "MemoryTransformer":
         policy = GaussianMemoryTransformerPolicy(name='policy',
                                     env_spec=env_spec,
@@ -169,7 +184,7 @@ def transformer_ppo_halfcheetah(ctxt, env_name, seed, max_episode_length, meta_b
                                     init_std=init_std,
                                     learn_std=learn_std,
                                     policy_head_type=policy_head_type,
-                                    policy_head_input=policy_head_input)
+                                    policy_head_input=policy_head_input) if policy is None else policy
                                     
 
     # count_parameters(policy)
@@ -180,7 +195,7 @@ def transformer_ppo_halfcheetah(ctxt, env_name, seed, max_episode_length, meta_b
                                               base_model=base_model,
                                               hidden_sizes=(64, 64),
                                               hidden_nonlinearity=torch.tanh,
-                                              output_nonlinearity=None)
+                                              output_nonlinearity=None) if value_function is None else value_function
 
     # count_parameters(value_function)
 
