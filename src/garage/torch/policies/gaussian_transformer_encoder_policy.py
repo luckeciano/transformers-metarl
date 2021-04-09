@@ -272,11 +272,11 @@ class GaussianTransformerEncoderPolicy(StochasticPolicy):
             torch.Tensor: Hidden States
 
         """
-        policy_head_input, transformer_output = self.compute_memories(observations)
+        policy_head_input, transformer_output = self.compute_memories(observations, hidden_states)
         dist = self._policy_head(policy_head_input)
         return (dist, dict(mean=dist.mean, log_std=(dist.variance**.5).log()), transformer_output)
 
-    def compute_memories(self, observations):
+    def compute_memories(self, observations, hidden_states=None):
         # Get original shapes and reshape tensors to have a single batch dimension
         obs_shape = list(observations.shape)
         batch_shape = obs_shape[:-2]
