@@ -26,6 +26,8 @@ class Walker2DRandParamsEnv(RandomEnv, utils.EzPickle):
         if self._elapsed_steps == self._max_episode_steps:
             done = True
             info['bad_transition'] = True
+        else:
+            info['bad_transition'] = False
         return ob, reward, done, info
 
     def _get_obs(self):

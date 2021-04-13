@@ -256,6 +256,8 @@ class GymEnv(Environment):
         if not self._env_info:
             self._env_info = {k: type(info[k]) for k in info}
         elif self._env_info.keys() != info.keys():
+            print(self._env_info.keys())
+            print(info.keys())
             raise RuntimeError('GymEnv outputs inconsistent env_info keys.')
         if not self.spec.observation_space.contains(observation):
             # Discrete actions can be either in the space normally, or one-hot
