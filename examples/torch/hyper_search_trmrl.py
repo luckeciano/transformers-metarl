@@ -67,7 +67,7 @@ def trmrl_cmd(env_name, nheads_dmodel, layers, dropout_rate, wm_length, em_lengt
     " --policy_ent_coeff=" + str(entropy_hypers[1]) + \
     " --entropy_method=" + str(entropy_hypers[0]) + " --gpu_id=" + str(gpu_id) + \
     " --architecture=" + str(architecture) + " --policy_head_type=" + str(policy_head_type) + " --init_std=" + str(init_std) + " --policy_head_input=" + str(policy_head_input) + \
-    " --decay_epoch_init=" + str(decay_epoch)
+    " --decay_epoch_init=" + str(decay_epoch) + " --learn_std"
 
     if center_adv:
         cmd += " --center_adv"
