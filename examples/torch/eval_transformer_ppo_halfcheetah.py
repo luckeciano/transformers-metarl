@@ -112,18 +112,22 @@ def rollout(env,
 
 def get_env(env_name):
     m = __import__("garage")
+    if env_name == "Walker2DRandParamsEnv":
+        m = getattr(m, "rand_param_envs")
+        m = getattr(m, "walker2d_rand_params")
+        return getattr(m, env_name)
     m = getattr(m, "envs")
     m = getattr(m, "mujoco")
     return getattr(m, env_name)
 
 @click.command()
-@click.option('--path', default='/data/transformer-metarl/garage/examples/torch/data/local/experiment/transformer_ppo_halfcheetah_247')
-@click.option('--env_name', default="HalfCheetahDirEnv")
+@click.option('--path', default='/data/transformer-metarl/garage/examples/torch/data/local/experiment/transformer_ppo_halfcheetah_294')
+@click.option('--env_name', default="Walker2DRandParamsEnv")
 def transformer_ppo_halfcheetah(path, env_name):
     """Eval policy with HalfCheetah environment.
     """
     snapshotter = Snapshotter()
-    data = snapshotter.load(path, itr=2490)
+    data = snapshotter.load(path, itr=1740)
     # tasks = task_sampler.SetTaskSampler(
     #     HalfCheetahVelEnv,
     #     wrapper=lambda env, _: RL2Env(
@@ -148,7 +152,7 @@ def transformer_ppo_halfcheetah(path, env_name):
     #     {'velocity': 2.5},
     #     {'velocity': 3.0}
     # ]
-    tasks = env.sample_tasks(num_tasks=2)
+    tasks = env.sample_tasks(2)
     episodes_per_trial=2
 
     obs_emb_file = open("embeddings/obs_embeddings_{0}.tsv".format(env_name), "ab")
@@ -161,7 +165,7 @@ def transformer_ppo_halfcheetah(path, env_name):
         t = 0
         for ep in range(episodes_per_trial):
             policy.reset_observations()
-            eps = rollout(env, policy, animated=False, deterministic=True)
+            eps = rollout(env, policy, animated=True, deterministic=False)
         
         #attn_dict = eps["agent_infos"]["attention"][0]
         #for i in range(attn_dict['weights'].shape[0]):
@@ -171,13 +175,13 @@ def transformer_ppo_halfcheetah(path, env_name):
         #    x_lb = attn_dict['x_label'][i]
         #    y_lb = attn_dict['y_label'][i]
         #    plot_attention(attn_weights, x_lb, y_lb, title, "./visualization")
-            for obs_emb, em_emb in zip(eps["agent_infos"]["obs_emb"], eps["agent_infos"]["em_emb"]):
-                # if t >= 380:
-                np.savetxt(obs_emb_file, obs_emb.detach().cpu().numpy(), delimiter='\t')
-                # np.savetxt(wm_emb_file, wm_emb.detach().cpu().numpy(), delimiter='\t')
-                np.savetxt(em_emb_file, em_emb.detach().cpu().numpy(), delimiter='\t')
-                np.savetxt(metadata_file, np.array([t] + task_id)[np.newaxis], delimiter='\t')
-                t = t + 1
+            # for obs_emb, em_emb in zip(eps["agent_infos"]["obs_emb"], eps["agent_infos"]["em_emb"]):
+            #     # if t >= 380:
+            #     np.savetxt(obs_emb_file, obs_emb.detach().cpu().numpy(), delimiter='\t')
+            #     # np.savetxt(wm_emb_file, wm_emb.detach().cpu().numpy(), delimiter='\t')
+            #     np.savetxt(em_emb_file, em_emb.detach().cpu().numpy(), delimiter='\t')
+            #     np.savetxt(metadata_file, np.array([t] + task_id)[np.newaxis], delimiter='\t')
+            #     t = t + 1
             print(sum(eps['rewards']))
     obs_emb_file.close()
     em_emb_file.close()

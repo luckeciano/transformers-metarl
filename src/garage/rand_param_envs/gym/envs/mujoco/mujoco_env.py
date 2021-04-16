@@ -9,7 +9,7 @@ from garage.rand_param_envs.gym import error, spaces
 from garage.rand_param_envs.gym.utils import seeding
 
 try:
-    from garage.rand_param_envs.mujoco_py import MjModel
+    from garage.rand_param_envs.mujoco_py import MjModel, MjViewer
     from garage.rand_param_envs.mujoco_py.mjlib import mjlib
 except ImportError as e:
     raise error.DependencyNotInstalled(
@@ -126,7 +126,7 @@ class MujocoEnv(gym.Env):
 
     def _get_viewer(self):
         if self.viewer is None:
-            self.viewer = mujoco_py.MjViewer()
+            self.viewer = MjViewer()
             self.viewer.start()
             self.viewer.set_model(self.model)
             self.viewer_setup()
