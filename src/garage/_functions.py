@@ -273,10 +273,12 @@ def log_performance(itr, batch, discount, prefix='Evaluation'):
             tabular.record('SuccessRate', np.mean(success))
 
     #TODO: Remove this check after hyper searchs
+    if np.isnan(np.mean(undiscounted_returns)) and prefix == "Average":
+        raise Exception("NaN detected.")
     if np.mean(undiscounted_returns) < -100.0 and prefix == "Average":
         raise Exception("Poor performance for walker")
-    elif itr >= 100 and np.mean(undiscounted_returns) < 50.0 and prefix == "Average": 
-        raise Exception("Poor performance for walker.")
+    # elif itr >= 100 and np.mean(undiscounted_returns) < 50.0 and prefix == "Average": 
+    #     raise Exception("Poor performance for walker.")
     # elif itr >= 200 and np.mean(undiscounted_returns) < 250.0 and prefix == "Average": 
     #     raise Exception("Poor performance for walker.")
     # elif itr >= 300 and np.mean(undiscounted_returns) < 400.0 and prefix == "Average": 

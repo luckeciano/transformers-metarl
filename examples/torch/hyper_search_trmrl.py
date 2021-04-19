@@ -111,7 +111,7 @@ def run_search(gpu_id, env_name, num_jobs):
                 try:
                     x = psutil.Process(p.pid)
                     start_time = datetime.datetime.fromtimestamp(x.create_time())
-                    allowed_time = start_time + datetime.timedelta(seconds=1200 * 3600)
+                    allowed_time = start_time + datetime.timedelta(seconds=6 * 3600)
                     now = datetime.datetime.now()
                     if now > allowed_time:
                         print("Killing process " + str(p.pid) + " because it reached max execution time.")
