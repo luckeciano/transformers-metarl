@@ -123,9 +123,9 @@ class LocalSampler(Sampler):
                     return samples
 
     def obtain_exact_episodes(self,
-                              n_eps_per_worker,
                               agent_update,
-                              env_update=None):
+                              env_update=None,
+                              n_eps_per_worker=1):
         """Sample an exact number of episodes per worker.
 
         Args:
@@ -152,7 +152,7 @@ class LocalSampler(Sampler):
             for _ in range(n_eps_per_worker):
                 batch = worker.rollout()
                 batches.append(batch)
-        samples = EpisodeBatch.concatenate(*batches)
+        samples = AugmentedEpisodeBatch.concatenate(*batches)
         self.total_env_steps += sum(samples.lengths)
         return samples
 
