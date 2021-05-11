@@ -298,6 +298,11 @@ class GaussianTransformerEncoderPolicy(StochasticPolicy):
         # Get current working memory as the most recent in the tensor
         curr_working_memo = torch.gather(working_memo, dim=1, index=curr_em_index)
 
+        final_shape_obs = batch_shape + [self._obs_embedding.out_features]
+        curr_working_memo = torch.reshape(curr_working_memo, final_shape_obs)
+
+        return curr_working_memo, curr_working_memo.detach().cpu().numpy()
+
         working_memo = working_memo.permute(1, 0, 2) #Transformer module inputs (S_len, B, output_step)
         wm_pos = self._wm_positional_encoding(working_memo)
         transformer_output = self._transformer_module(wm_pos, mask=self.get_mask()) #(T, B, target_output)

@@ -91,37 +91,39 @@ class RandomEnv(MetaEnv, MujocoEnv):
 
         for _ in range(n_tasks):
             # body mass -> one multiplier for all body parts
+            param_sets.append(self.init_params)
+            
 
-            new_params = {}
+            # new_params = {}
 
-            if 'body_mass' in self.rand_params:
-                rand_params = [random.uniform(-self.log_scale_limit, self.log_scale_limit) for _ in
-                               range(np.prod(self.model.body_mass.shape))]
-                body_mass_multiplyers = np.array(1.5) ** np.array(rand_params).reshape(self.model.body_mass.shape)
-                new_params['body_mass'] = self.init_params['body_mass'] * body_mass_multiplyers
+            # if 'body_mass' in self.rand_params:
+            #     rand_params = [random.uniform(-self.log_scale_limit, self.log_scale_limit) for _ in
+            #                    range(np.prod(self.model.body_mass.shape))]
+            #     body_mass_multiplyers = np.array(1.5) ** np.array(rand_params).reshape(self.model.body_mass.shape)
+            #     new_params['body_mass'] = self.init_params['body_mass'] * body_mass_multiplyers
 
-            # body_inertia
-            if 'body_inertia' in self.rand_params:
-                rand_params = [random.uniform(-self.log_scale_limit, self.log_scale_limit) for _ in
-                               range(np.prod(self.model.body_inertia.shape))]
-                body_inertia_multiplyers = np.array(1.5) ** np.array(rand_params).reshape(self.model.body_inertia.shape)
-                new_params['body_inertia'] = body_inertia_multiplyers * self.init_params['body_inertia']
+            # # body_inertia
+            # if 'body_inertia' in self.rand_params:
+            #     rand_params = [random.uniform(-self.log_scale_limit, self.log_scale_limit) for _ in
+            #                    range(np.prod(self.model.body_inertia.shape))]
+            #     body_inertia_multiplyers = np.array(1.5) ** np.array(rand_params).reshape(self.model.body_inertia.shape)
+            #     new_params['body_inertia'] = body_inertia_multiplyers * self.init_params['body_inertia']
 
-            # damping -> different multiplier for different dofs/joints
-            if 'dof_damping' in self.rand_params:
-                rand_params = [random.uniform(-self.log_scale_limit, self.log_scale_limit) for _ in
-                               range(np.prod(self.model.dof_damping.shape))]
-                dof_damping_multipliers = np.array(1.3) ** np.array(rand_params).reshape(self.model.dof_damping.shape)
-                new_params['dof_damping'] = np.multiply(self.init_params['dof_damping'], dof_damping_multipliers)
+            # # damping -> different multiplier for different dofs/joints
+            # if 'dof_damping' in self.rand_params:
+            #     rand_params = [random.uniform(-self.log_scale_limit, self.log_scale_limit) for _ in
+            #                    range(np.prod(self.model.dof_damping.shape))]
+            #     dof_damping_multipliers = np.array(1.3) ** np.array(rand_params).reshape(self.model.dof_damping.shape)
+            #     new_params['dof_damping'] = np.multiply(self.init_params['dof_damping'], dof_damping_multipliers)
 
-            # friction at the body components
-            if 'geom_friction' in self.rand_params:
-                rand_params = [random.uniform(-self.log_scale_limit, self.log_scale_limit) for _ in
-                               range(np.prod(self.model.geom_friction.shape))]
-                dof_damping_multipliers = np.array(1.5) ** np.array(rand_params).reshape(self.model.geom_friction.shape)
-                new_params['geom_friction'] = np.multiply(self.init_params['geom_friction'], dof_damping_multipliers)
+            # # friction at the body components
+            # if 'geom_friction' in self.rand_params:
+            #     rand_params = [random.uniform(-self.log_scale_limit, self.log_scale_limit) for _ in
+            #                    range(np.prod(self.model.geom_friction.shape))]
+            #     dof_damping_multipliers = np.array(1.5) ** np.array(rand_params).reshape(self.model.geom_friction.shape)
+            #     new_params['geom_friction'] = np.multiply(self.init_params['geom_friction'], dof_damping_multipliers)
 
-            param_sets.append(new_params)
+            # param_sets.append(new_params)
 
         return param_sets
 
