@@ -14,7 +14,7 @@ from garage.sampler import LocalSampler
 from garage.trainer import Trainer
 from garage.torch.algos import RL2PPO
 from garage.torch.algos.rl2 import RL2Env, RL2Worker
-from garage.torch.policies import GaussianTransformerPolicy, GaussianTransformerEncoderPolicy, GaussianMemoryTransformerPolicy
+from garage.torch.policies import GaussianTransformerPolicy, GaussianTransformerEncoderPolicy, GaussianMemoryTransformerPolicy, GaussianMLPPolicy
 from garage.torch.value_functions import GaussianMLPValueFunction
 
 from prettytable import PrettyTable
@@ -91,6 +91,8 @@ def get_env(env_name):
 @click.option('--recurrent_policy', is_flag=True)
 @click.option('--pretrained_dir', default=None)
 @click.option('--pretrained_epoch', default=4980)
+@click.option('--output_weights_scale', default=1.0)
+@click.option('--normalized_wm', is_flag=True)
 @click.option('--gpu_id', default=0)
 @wrap_experiment(snapshot_mode='gap', snapshot_gap=30)
 def transformer_ppo_halfcheetah(ctxt, env_name, seed, max_episode_length, meta_batch_size,
@@ -102,7 +104,8 @@ def transformer_ppo_halfcheetah(ctxt, env_name, seed, max_episode_length, meta_b
                         share_network, architecture, policy_head_input, dropatt, attn_type,
                         pre_lnorm, init_params, gating, init_std, learn_std, policy_head_type,
                         policy_lr_schedule, vf_lr_schedule, decay_epoch_init, decay_epoch_end, min_lr_factor,
-                        recurrent_policy, tfixup, remove_ln, pretrained_dir, pretrained_epoch, gpu_id):
+                        recurrent_policy, tfixup, remove_ln, pretrained_dir, pretrained_epoch, 
+                        output_weights_scale, normalized_wm, gpu_id):
     """Train PPO with HalfCheetah environment.
 
     Args:
@@ -125,7 +128,7 @@ def transformer_ppo_halfcheetah(ctxt, env_name, seed, max_episode_length, meta_b
         data = snapshotter.load(pretrained_dir, itr=pretrained_epoch)
         policy = data['algo'].policy
         value_function = data['algo'].value_function
-    
+
     trainer = Trainer(ctxt)
     env_class = get_env(env_name)
     tasks = task_sampler.SetTaskSampler(
@@ -152,6 +155,8 @@ def transformer_ppo_halfcheetah(ctxt, env_name, seed, max_episode_length, meta_b
                                     tfixup=tfixup,
                                     remove_ln=remove_ln,
                                     init_std=init_std,
+                                    mlp_output_w_init= lambda x: torch.nn.init.xavier_uniform_(x, gain=output_weights_scale),
+                                    normalize_wm=normalized_wm,
                                     recurrent_policy=recurrent_policy) if policy is None else policy
     elif architecture == "Transformer":         
         policy = GaussianTransformerPolicy(name='policy',

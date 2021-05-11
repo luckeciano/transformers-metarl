@@ -339,7 +339,8 @@ class Trainer:
                 # failed otherwise.
                 policy = self._algo.policy
             agent_update = policy.get_param_values()
-        episodes = self._sampler.obtain_exact_episodes(
+        episodes = self._sampler.obtain_samples(
+            itr, (batch_size or self._train_args.batch_size),
             agent_update=agent_update,
             env_update=env_update)
         self._stats.total_env_steps += sum(episodes.lengths)

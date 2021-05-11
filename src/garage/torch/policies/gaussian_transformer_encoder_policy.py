@@ -4,6 +4,7 @@ from torch import nn
 import math
 import numpy as np
 from garage.torch import global_device, np_to_torch
+from garage.utils.running_stats import RunningMeanStd
 import torch.nn.functional as F
 
 from garage.torch.modules import GaussianMLPModule, MLPModule, TransformerEncoderLayerNoLN, GaussianMLPIndependentStdModule, GaussianMLPTwoHeadedModule
@@ -101,6 +102,7 @@ class GaussianTransformerEncoderPolicy(StochasticPolicy):
                  tfixup=True,
                  remove_ln=True,
                  recurrent_policy=False,
+                 normalize_wm=False,
                  name='GaussianTransformerEncoderPolicy'):
         super().__init__(env_spec, name)
         self._obs_dim = env_spec.observation_space.flat_dim
@@ -109,6 +111,7 @@ class GaussianTransformerEncoderPolicy(StochasticPolicy):
         self._d_model = d_model
         self._policy_head_input = policy_head_input
         self._recurrent_policy = recurrent_policy
+        self._normalize_wm = normalize_wm
 
         self._obs_embedding = nn.Linear(
             in_features = self._obs_dim,
@@ -241,6 +244,9 @@ class GaussianTransformerEncoderPolicy(StochasticPolicy):
             )
 
         self.src_mask = None
+
+        if self._normalize_wm:
+            self.wm_rms = RunningMeanStd(shape=(self._obs_dim))
 
         self._prev_observations = None
         self._last_hidden_state = None
@@ -394,6 +400,7 @@ class GaussianTransformerEncoderPolicy(StochasticPolicy):
                 self._state_include_action is True.
 
         """
+
         if self._recurrent_policy and self._last_hidden_state is not None:
             obs_idx = self._step - 1 if self._step - 1 < self._obs_horizon else self._obs_horizon - 1
             self._prev_observations[:, obs_idx, :] = np.copy(self._last_hidden_state)
@@ -412,6 +419,12 @@ class GaussianTransformerEncoderPolicy(StochasticPolicy):
             k: v.detach().cpu().numpy()
             for (k, v) in info.items()
         }, self._prev_observations, hidden_states
+
+    def apply_rms(self, observations):
+        if self._normalize_wm:
+            observations = (observations - self.wm_rms.mean) / np.sqrt(self.wm_rms.var + 1e-8)
+            self.wm_rms.update(observations)   
+        return observations 
 
     def _update_prev_observations(self, observations):
         if self._step < self._obs_horizon: # fits in memory: just keep updating the right index
