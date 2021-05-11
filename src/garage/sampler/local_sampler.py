@@ -112,15 +112,17 @@ class LocalSampler(Sampler):
         self._update_workers(agent_update, env_update)
         batches = []
         completed_samples = 0
+        idx_offset = 0
         while True:
             for worker in self._workers:
-                batch = worker.rollout(deterministic)
+                batch = worker.rollout(deterministic, idx_offset=idx_offset)
                 completed_samples += len(batch.actions)
                 batches.append(batch)
                 if completed_samples >= num_samples:
                     samples = AugmentedEpisodeBatch.concatenate(*batches)
                     self.total_env_steps += sum(samples.lengths)
                     return samples
+            idx_offset += len(self._workers)
 
     def obtain_exact_episodes(self,
                               n_eps_per_worker,

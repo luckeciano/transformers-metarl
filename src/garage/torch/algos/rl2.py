@@ -152,7 +152,7 @@ class RL2Worker(DefaultWorker):
         self._eps_length = 0
         self._prev_obs = self.env.reset()[0]
 
-    def rollout(self, deterministic=False):
+    def rollout(self, deterministic=False, idx_offset=0):
         """Sample a single episode of the agent in the environment.
 
         Returns:
@@ -166,7 +166,7 @@ class RL2Worker(DefaultWorker):
             while not self.step_episode(deterministic):
                 pass
         self._agent_infos['batch_idx'] = np.full(len(self._env_steps),
-                                                 self._worker_number)
+                                                 self._worker_number + idx_offset)
         return self.collect_episode()
 
     def step_episode(self, deterministic=False):
@@ -178,6 +178,7 @@ class RL2Worker(DefaultWorker):
 
         """
         if self._eps_length < self._max_episode_length:
+            self._prev_obs = self.agent.apply_rms(self._prev_obs)
             a, agent_info, aug_obs, hidden_states = self.agent.get_action(self._prev_obs, deterministic) #augment_obs = obs + hidden_states
             es = self.env.step(a)
             self._observations.append(self._prev_obs)
