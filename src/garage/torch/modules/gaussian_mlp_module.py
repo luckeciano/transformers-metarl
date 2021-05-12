@@ -122,12 +122,13 @@ class GaussianMLPBaseModule(nn.Module):
         if self._std_parameterization not in ('exp', 'softplus'):
             raise NotImplementedError
 
-        init_std_param = torch.Tensor([init_std]).log()
+        self._init_std = torch.Tensor([init_std]).log()
+        log_std = torch.Tensor([init_std] * output_dim).log()
         if self._learn_std:
-            self._init_std = torch.nn.Parameter(init_std_param)
+            self._log_std = torch.nn.Parameter(log_std)
         else:
-            self._init_std = init_std_param
-            self.register_buffer('init_std', self._init_std)
+            self._log_std = log_std
+            self.register_buffer('log_std', self._log_std)
 
         self._min_std_param = self._max_std_param = None
         if min_std is not None:
@@ -147,8 +148,8 @@ class GaussianMLPBaseModule(nn.Module):
         """
         super().to(*args, **kwargs)
         buffers = dict(self.named_buffers())
-        if not isinstance(self._init_std, torch.nn.Parameter):
-            self._init_std = buffers['init_std']
+        if not isinstance(self._log_std, torch.nn.Parameter):
+            self._log_std = buffers['log_std']
         if self._min_std_param is not None:
             self._min_std_param = buffers['min_std_param']
         if self._max_std_param  is not None:
@@ -258,8 +259,7 @@ class GaussianMLPModule(GaussianMLPBaseModule):
                  std_parameterization='exp',
                  layer_normalization=False,
                  normal_distribution_cls=Normal):
-        super(GaussianMLPModule,
-              self).__init__(input_dim=input_dim,
+        super().__init__(input_dim=input_dim,
                              output_dim=output_dim,
                              hidden_sizes=hidden_sizes,
                              hidden_nonlinearity=hidden_nonlinearity,
@@ -288,24 +288,20 @@ class GaussianMLPModule(GaussianMLPBaseModule):
             output_b_init=self._output_b_init,
             layer_normalization=self._layer_normalization)
 
-    def _get_mean_and_log_std(self, *inputs):
+    def _get_mean_and_log_std(self, x):
         """Get mean and std of Gaussian distribution given inputs.
 
         Args:
-            *inputs: Input to the module.
+            inputs: Input to the module.
 
         Returns:
             torch.Tensor: The mean of Gaussian distribution.
             torch.Tensor: The variance of Gaussian distribution.
 
         """
-        assert len(inputs) == 1
-        mean = self._mean_module(*inputs)
+        mean = self._mean_module(x)
 
-        broadcast_shape = list(inputs[0].shape[:-1]) + [self._action_dim]
-        uncentered_log_std = torch.zeros(*broadcast_shape).to(global_device()) + self._init_std
-
-        return mean, uncentered_log_std
+        return mean, self._log_std
 
 
 class GaussianMLPIndependentStdModule(GaussianMLPBaseModule):
@@ -391,8 +387,7 @@ class GaussianMLPIndependentStdModule(GaussianMLPBaseModule):
                  std_parameterization='exp',
                  layer_normalization=False,
                  normal_distribution_cls=Normal):
-        super(GaussianMLPIndependentStdModule,
-              self).__init__(input_dim=input_dim,
+        super().__init__(input_dim=input_dim,
                              output_dim=output_dim,
                              hidden_sizes=hidden_sizes,
                              hidden_nonlinearity=hidden_nonlinearity,
@@ -528,8 +523,7 @@ class GaussianMLPTwoHeadedModule(GaussianMLPBaseModule):
                  std_parameterization='exp',
                  layer_normalization=False,
                  normal_distribution_cls=Normal):
-        super(GaussianMLPTwoHeadedModule,
-              self).__init__(input_dim=input_dim,
+        super().__init__(input_dim=input_dim,
                              output_dim=output_dim,
                              hidden_sizes=hidden_sizes,
                              hidden_nonlinearity=hidden_nonlinearity,
