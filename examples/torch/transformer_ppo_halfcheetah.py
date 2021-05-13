@@ -8,7 +8,7 @@ from garage.torch import set_gpu_mode
 from garage import wrap_experiment
 from garage.envs import GymEnv
 from garage.envs.mujoco.half_cheetah_vel_env import HalfCheetahVelEnv
-from garage.experiment import task_sampler, MetaEvaluator, OnlineMetaEvaluator
+from garage.experiment import task_sampler, MetaEvaluator, OnlineMetaEvaluator, Snapshotter
 from garage.experiment.deterministic import set_seed
 from garage.sampler import LocalSampler
 from garage.trainer import Trainer
