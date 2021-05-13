@@ -85,13 +85,10 @@ def get_env(env_name):
 @click.option('--tfixup', is_flag=True)
 @click.option('--remove_ln', is_flag=True)
 @click.option('--recurrent_policy', is_flag=True)
-<<<<<<< HEAD
-=======
 @click.option('--pretrained_dir', default=None)
 @click.option('--pretrained_epoch', default=4980)
 @click.option('--output_weights_scale', default=1.0)
 @click.option('--normalized_wm', is_flag=True)
->>>>>>> 51ea462d... Adding state normalizer + output weight scaler + hyper search for them
 @click.option('--gpu_id', default=0)
 @wrap_experiment(snapshot_mode='gap', snapshot_gap=30)
 def transformer_ppo_halfcheetah(ctxt, env_name, seed, max_episode_length, meta_batch_size,
@@ -103,12 +100,8 @@ def transformer_ppo_halfcheetah(ctxt, env_name, seed, max_episode_length, meta_b
                         share_network, architecture, policy_head_input, dropatt, attn_type,
                         pre_lnorm, init_params, gating, init_std, learn_std, policy_head_type,
                         policy_lr_schedule, vf_lr_schedule, decay_epoch_init, decay_epoch_end, min_lr_factor,
-<<<<<<< HEAD
-                        recurrent_policy, tfixup, remove_ln, gpu_id):
-=======
                         recurrent_policy, tfixup, remove_ln, pretrained_dir, pretrained_epoch, 
                         output_weights_scale, normalized_wm, gpu_id):
->>>>>>> 51ea462d... Adding state normalizer + output weight scaler + hyper search for them
     """Train PPO with HalfCheetah environment.
 
     Args:
@@ -123,8 +116,6 @@ def transformer_ppo_halfcheetah(ctxt, env_name, seed, max_episode_length, meta_b
 
     """
     set_seed(seed)
-<<<<<<< HEAD
-=======
 
     policy = None
     value_function = None
@@ -134,7 +125,6 @@ def transformer_ppo_halfcheetah(ctxt, env_name, seed, max_episode_length, meta_b
         policy = data['algo'].policy
         value_function = data['algo'].value_function
 
->>>>>>> 51ea462d... Adding state normalizer + output weight scaler + hyper search for them
     trainer = Trainer(ctxt)
     env_class = get_env(env_name)
     tasks = task_sampler.SetTaskSampler(
@@ -161,13 +151,9 @@ def transformer_ppo_halfcheetah(ctxt, env_name, seed, max_episode_length, meta_b
                                     tfixup=tfixup,
                                     remove_ln=remove_ln,
                                     init_std=init_std,
-<<<<<<< HEAD
-                                    recurrent_policy=recurrent_policy)
-=======
                                     mlp_output_w_init= lambda x: torch.nn.init.xavier_uniform_(x, gain=output_weights_scale),
                                     normalize_wm=normalized_wm,
                                     recurrent_policy=recurrent_policy) if policy is None else policy
->>>>>>> 51ea462d... Adding state normalizer + output weight scaler + hyper search for them
     elif architecture == "Transformer":         
         policy = GaussianTransformerPolicy(name='policy',
                                     env_spec=env_spec,
