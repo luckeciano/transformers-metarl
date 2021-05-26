@@ -88,6 +88,7 @@ class GaussianTransformerEncoderPolicy(StochasticPolicy):
                  init_std=1.0,
                  min_std=1e-6,
                  max_std=None,
+                 annealing_rate=1.0,
                  std_parameterization='exp',
                  layer_normalization=False,
                  d_model=128,
@@ -233,6 +234,7 @@ class GaussianTransformerEncoderPolicy(StochasticPolicy):
                 init_std=init_std,
                 min_std=min_std,
                 max_std=max_std,
+                annealing_rate=annealing_rate,
                 std_parameterization=std_parameterization,
                 layer_normalization=layer_normalization)
         
@@ -345,6 +347,7 @@ class GaussianTransformerEncoderPolicy(StochasticPolicy):
         self._prev_actions[do_resets] = 0.
         self._episodic_memory_counter = -1
         self._last_hidden_state = None
+        self._policy_head.anneal_std()
 
     def reset_observations(self, do_resets=None):
         if do_resets is None:

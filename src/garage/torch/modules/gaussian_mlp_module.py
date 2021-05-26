@@ -1,5 +1,6 @@
 """GaussianMLPModule."""
 import abc
+import numpy as np
 
 import torch
 from torch import nn
@@ -94,6 +95,7 @@ class GaussianMLPBaseModule(nn.Module):
                  std_output_w_init=nn.init.xavier_uniform_,
                  std_parameterization='exp',
                  layer_normalization=False,
+                 annealing_rate=1.0,
                  normal_distribution_cls=Normal):
         super().__init__()
 
@@ -117,6 +119,7 @@ class GaussianMLPBaseModule(nn.Module):
         self._output_w_init = output_w_init
         self._output_b_init = output_b_init
         self._layer_normalization = layer_normalization
+        self._annealing_rate = annealing_rate
         self._norm_dist_class = normal_distribution_cls
 
         if self._std_parameterization not in ('exp', 'softplus'):
@@ -195,6 +198,10 @@ class GaussianMLPBaseModule(nn.Module):
 
         return dist
 
+    def anneal_std(self):
+        with torch.no_grad():
+            self._log_std += np.log(self._annealing_rate)
+
 
 class GaussianMLPModule(GaussianMLPBaseModule):
     """GaussianMLPModule that mean and std share the same network.
@@ -255,6 +262,7 @@ class GaussianMLPModule(GaussianMLPBaseModule):
                  learn_std=True,
                  init_std=1.0,
                  min_std=1e-6,
+                 annealing_rate=1.0,
                  max_std=None,
                  std_parameterization='exp',
                  layer_normalization=False,
@@ -272,6 +280,7 @@ class GaussianMLPModule(GaussianMLPBaseModule):
                              init_std=init_std,
                              min_std=min_std,
                              max_std=max_std,
+                             annealing_rate=annealing_rate,
                              std_parameterization=std_parameterization,
                              layer_normalization=layer_normalization,
                              normal_distribution_cls=normal_distribution_cls)

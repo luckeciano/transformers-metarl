@@ -89,6 +89,8 @@ def get_env(env_name):
 @click.option('--pretrained_epoch', default=4980)
 @click.option('--output_weights_scale', default=1.0)
 @click.option('--normalized_wm', is_flag=True)
+@click.option('--annealing_std', is_flag=True)
+@click.option('--min_std', default=1e-6)
 @click.option('--gpu_id', default=0)
 @wrap_experiment(snapshot_mode='gap', snapshot_gap=30)
 def transformer_ppo_halfcheetah(ctxt, env_name, seed, max_episode_length, meta_batch_size,
@@ -101,7 +103,7 @@ def transformer_ppo_halfcheetah(ctxt, env_name, seed, max_episode_length, meta_b
                         pre_lnorm, init_params, gating, init_std, learn_std, policy_head_type,
                         policy_lr_schedule, vf_lr_schedule, decay_epoch_init, decay_epoch_end, min_lr_factor,
                         recurrent_policy, tfixup, remove_ln, pretrained_dir, pretrained_epoch, 
-                        output_weights_scale, normalized_wm, gpu_id):
+                        output_weights_scale, normalized_wm, annealing_std, min_std, gpu_id):
     """Train PPO with HalfCheetah environment.
 
     Args:
@@ -136,6 +138,11 @@ def transformer_ppo_halfcheetah(ctxt, env_name, seed, max_episode_length, meta_b
         GymEnv(env_class(),
                 max_episode_length=max_episode_length)).spec
 
+    if annealing_std:
+        annealing_rate = (min_std/init_std) ** (3.0 / (meta_batch_size * 2 * n_epochs)) # reach min step at 2/3 * n_epochs
+    else:
+        annealing_rate = 1.0
+
     if architecture == "Encoder":
         policy = GaussianTransformerEncoderPolicy(name='policy',
                                     env_spec=env_spec,
@@ -151,6 +158,8 @@ def transformer_ppo_halfcheetah(ctxt, env_name, seed, max_episode_length, meta_b
                                     tfixup=tfixup,
                                     remove_ln=remove_ln,
                                     init_std=init_std,
+                                    min_std=min_std,
+                                    annealing_rate=annealing_rate,
                                     mlp_output_w_init= lambda x: torch.nn.init.xavier_uniform_(x, gain=output_weights_scale),
                                     normalize_wm=normalized_wm,
                                     recurrent_policy=recurrent_policy) if policy is None else policy
