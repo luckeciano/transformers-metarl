@@ -158,6 +158,7 @@ def transformer_ppo_halfcheetah(ctxt, env_name, seed, max_episode_length, meta_b
                                     tfixup=tfixup,
                                     remove_ln=remove_ln,
                                     init_std=init_std,
+                                    learn_std=learn_std,
                                     min_std=min_std,
                                     annealing_rate=annealing_rate,
                                     mlp_output_w_init= lambda x: torch.nn.init.xavier_uniform_(x, gain=output_weights_scale),
@@ -204,6 +205,7 @@ def transformer_ppo_halfcheetah(ctxt, env_name, seed, max_episode_length, meta_b
     value_function = GaussianMLPValueFunction(env_spec=env_spec,
                                               base_model=base_model,
                                               hidden_sizes=(64, 64),
+                                              learn_std=learn_std,
                                               hidden_nonlinearity=torch.tanh,
                                               output_nonlinearity=None)
 

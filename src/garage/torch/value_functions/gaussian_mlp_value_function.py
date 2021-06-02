@@ -3,6 +3,7 @@ import torch
 from torch import nn
 
 from garage.torch.modules import GaussianMLPModule
+from garage.torch import global_device
 from garage.torch.value_functions.value_function import ValueFunction
 
 
@@ -122,3 +123,14 @@ class GaussianMLPValueFunction(ValueFunction):
 
     def shared_network(self):
         return self._base_model is not None
+
+    def to(self, device=None):
+        """Put all the networks within the model on device.
+
+        Args:
+            device (str): ID of GPU or CPU.
+
+        """
+        device = device or global_device()
+        for net in [self.module]:
+            net.to(device)

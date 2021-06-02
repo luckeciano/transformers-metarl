@@ -44,9 +44,9 @@ class AntDirEnv(AntEnv):
             task=self.get_task()
         )
 
-    def sample_tasks(self, n_tasks):
+    def sample_tasks(self, num_tasks):
         # for fwd/bwd env, goal direc is backwards if - 1.0, forwards if + 1.0
-        return [random.choice([-1.0, 1.0]) for _ in range(n_tasks, )]
+        return [random.choice([-1.0, 1.0]) for _ in range(num_tasks, )]
 
     def set_task(self, task):
         self.goal_direction = task

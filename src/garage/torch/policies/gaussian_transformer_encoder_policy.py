@@ -516,3 +516,14 @@ class GaussianTransformerEncoderPolicy(StochasticPolicy):
     @property
     def memory_dim(self):
         return self._policy_head_input_dim
+
+    def to(self, device=None):
+        """Put all the networks within the model on device.
+
+        Args:
+            device (str): ID of GPU or CPU.
+
+        """
+        device = device or global_device()
+        for net in [self._wm_positional_encoding, self._obs_embedding, self._transformer_module, self._policy_head]:
+            net.to(device)
