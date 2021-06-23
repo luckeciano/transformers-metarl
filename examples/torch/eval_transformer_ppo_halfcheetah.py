@@ -117,39 +117,44 @@ def get_env(env_name):
     return getattr(m, env_name)
 
 @click.command()
-@click.option('--path', default='/data/transformer-metarl/garage/examples/torch/data/local/experiment/transformer_ppo_halfcheetah_241')
+@click.option('--path', default='/data/transformer-metarl/garage/examples/torch/data/local/experiment/transformer_ppo_halfcheetah_16')
 @click.option('--env_name', default="HalfCheetahVelEnv")
 def transformer_ppo_halfcheetah(path, env_name):
     """Eval policy with HalfCheetah environment.
     """
     snapshotter = Snapshotter()
-    data = snapshotter.load(path, itr=1200)
+    data = snapshotter.load(path, itr=0)
     # tasks = task_sampler.SetTaskSampler(
     #     HalfCheetahVelEnv,
     #     wrapper=lambda env, _: RL2Env(
     #         GymEnv(env, max_episode_length=200)))
 
     policy = data['algo'].policy
-    if torch.cuda.is_available():
-        set_gpu_mode(True, gpu_id=0)
-    else:
-        set_gpu_mode(False)
+    # if torch.cuda.is_available():
+    #     set_gpu_mode(True, gpu_id=0)
+    # else:
+    #     set_gpu_mode(False)
 
     # algo.to()
 
     env_class = get_env(env_name)
     env = RL2Env(GymEnv(env_class(), max_episode_length=200))
-    tasks = env.sample_tasks(num_tasks=1)
-    episodes_per_trial=2
+    tasks = env.sample_tasks(num_tasks=10)
+    episodes_per_trial=5
 
     obs_emb_file = open("embeddings/obs_embeddings_{0}.tsv".format(env_name), "ab")
     em_emb_file = open("embeddings/em_embeddings_{0}.tsv".format(env_name), "ab")
     metadata_file = open("embeddings/metadata_{0}.tsv".format(env_name), "ab")
+    rewards_file = open("embeddings/rewards_{0}.csv".format(env_name), "ab")
+    rewards_stats_file = open("embeddings/rewards_stats_{0}.csv".format(env_name), "ab")
     for task in tasks:
-        task_id = list(task.values())
+        # task_id = list(task.values())
+        task_id = task
         env.set_task(task)
         policy.reset()
         t = 0
+        rewards = np.array([])
+        rewards_stats = []
         for ep in range(episodes_per_trial):
             policy.reset_observations()
             eps = rollout(env, policy, animated=False, deterministic=True)
@@ -163,12 +168,20 @@ def transformer_ppo_halfcheetah(path, env_name):
         #    y_lb = attn_dict['y_label'][i]
         #    plot_attention(attn_weights, x_lb, y_lb, title, "./visualization")
             for obs_emb, em_emb in zip(eps["agent_infos"]["obs_emb"], eps["agent_infos"]["em_emb"]):
-                np.savetxt(obs_emb_file, obs_emb.detach().cpu().numpy(), delimiter='\t')
+                # np.savetxt(obs_emb_file, obs_emb.detach().cpu().numpy(), delimiter='\t')
                 # np.savetxt(wm_emb_file, wm_emb.detach().cpu().numpy(), delimiter='\t')
-                np.savetxt(em_emb_file, em_emb.detach().cpu().numpy(), delimiter='\t')
-                np.savetxt(metadata_file, np.array([t] + task_id)[np.newaxis], delimiter='\t')
+                # np.savetxt(em_emb_file, em_emb.detach().cpu().numpy(), delimiter='\t')
+                # np.savetxt(metadata_file, np.array([t] + task_id)[np.newaxis], delimiter='\t')
                 t = t + 1
+
+            rewards = np.concatenate((rewards, eps['rewards']))
+            rewards_stats.append(sum(eps['rewards']))
             print(sum(eps['rewards']))
+
+
+        np.savetxt(rewards_file, rewards[np.newaxis], delimiter=',', fmt='%.3f')
+        np.savetxt(rewards_stats_file, np.array(rewards_stats)[np.newaxis], delimiter=',', fmt='%.3f')
+            
     obs_emb_file.close()
     em_emb_file.close()
     metadata_file.close()
