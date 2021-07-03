@@ -1,4 +1,4 @@
-name: transformer-metarl
+name: trmrl-ant-goal
 channels:
   - pytorch
   - defaults
@@ -72,7 +72,6 @@ dependencies:
     - lxml==4.6.1
     - markupsafe==1.1.1
     - mccabe==0.6.1
-    - metaworld==0.0.0
     - nodeenv==1.5.0
     - packaging==20.4
     - pep8-naming==0.7.0
@@ -103,9 +102,9 @@ dependencies:
     - sphinxcontrib-qthelp==1.0.3
     - sphinxcontrib-serializinghtml==1.1.4
     - toml==0.10.2
-    - torch==1.7.1+cu101
+    - torch==1.7.1
     - torchaudio==0.7.2
-    - torchvision==0.8.2+cu101
+    - torchvision==0.8.2
     - typed-ast==1.4.1
     - virtualenv==20.2.1
     - wcwidth==0.2.5
