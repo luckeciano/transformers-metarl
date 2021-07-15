@@ -8,6 +8,7 @@ from garage.torch import set_gpu_mode
 from garage import wrap_experiment
 from garage.envs import GymEnv
 from garage.envs.mujoco.half_cheetah_vel_env import HalfCheetahVelEnv
+from garage.envs.metaworld import ML1Env
 from garage.experiment import task_sampler, MetaEvaluator, OnlineMetaEvaluator, Snapshotter
 from garage.experiment.deterministic import set_seed
 from garage.sampler import LocalSampler
@@ -33,13 +34,19 @@ def count_parameters(model):
     return total_params
 
 def get_env(env_name):
-    m = __import__("garage")
-    m = getattr(m, "envs")
-    m = getattr(m, "mujoco")
-    return getattr(m, env_name)
+    try:
+        m = __import__("garage")
+        m = getattr(m, "envs")
+        m = getattr(m, "mujoco")
+        return getattr(m, env_name)
+    except:
+        m = __import__("garage")
+        m = getattr(m, "envs")
+        m = getattr(m, "metaworld")
+        return getattr(m, env_name)
 
 @click.command()
-@click.option('--env_name', default="HalfCheetahVelEnv")
+@click.option('--env_name', default="ML1ReachEnv")
 @click.option('--seed', default=1)
 @click.option('--max_episode_length', default=200)
 @click.option('--meta_batch_size', default=20)
