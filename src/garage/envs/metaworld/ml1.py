@@ -50,3 +50,11 @@ class ML1Env(gym.Env):
 class ML1ReachEnv(ML1Env):
     def __init__(self, max_episode_steps=500):
         super(ML1ReachEnv, self).__init__("reach-v2")
+
+class ML1PushEnv(ML1Env):
+    def __init__(self, max_episode_steps=500):
+        super(ML1PushEnv, self).__init__("push-v2")
+
+class ML1PickPlaceEnv(ML1Env):
+    def __init__(self, max_episode_steps=500):
+        super(ML1PickPlaceEnv, self).__init__("pick-place-v2")
