@@ -93,14 +93,15 @@ class MetaEvaluator:
             policy = algo.get_exploration_policy()
             eps = EpisodeBatch.concatenate(*[
                 self._test_sampler.obtain_samples(self._eval_itr, 1, policy,
-                                                  env_up)
+                                                  env_up, deterministic=True)
                 for _ in range(self._n_exploration_eps)
             ])
             adapted_policy = algo.adapt_policy(policy, eps)
             adapted_eps = self._test_sampler.obtain_samples(
                 self._eval_itr,
                 test_episodes_per_task * self._max_episode_length,
-                adapted_policy)
+                adapted_policy,
+                deterministic=True)
             adapted_episodes.append(adapted_eps)
         logger.log('Finished meta-testing...')
 

@@ -310,6 +310,9 @@ class NoResetPolicy:
         """
         self._policy.set_param_values(params)
 
+    def apply_rms(self, obs):
+        return self._policy.apply_rms(obs)
+
 
 # pylint: disable=protected-access
 class RL2AdaptedPolicy:
@@ -321,17 +324,15 @@ class RL2AdaptedPolicy:
     """
 
     def __init__(self, policy):
-        self._initial_hiddens = policy._prev_hiddens[:]
         self._policy = policy
 
     def reset(self):
         """Environment reset function."""
-        self._policy._prev_hiddens = self._initial_hiddens
 
     def reset_observations(self):
         self._policy.reset_observations()
 
-    def get_action(self, obs):
+    def get_action(self, obs, deterministic):
         """Get a single action from this policy for the input observation.
 
         Args:
@@ -342,7 +343,7 @@ class RL2AdaptedPolicy:
             dict: Agent info.
 
         """
-        return self._policy.get_action(obs)
+        return self._policy.get_action(obs, deterministic)
 
     def get_param_values(self):
         """Return values of params.
@@ -367,6 +368,9 @@ class RL2AdaptedPolicy:
         inner_params, hiddens = params
         self._policy.set_param_values(inner_params)
         self._initial_hiddens = hiddens
+
+    def apply_rms(self, obs):
+        return self._policy.apply_rms(obs)
 
 
 class RL2(MetaRLAlgorithm, abc.ABC):
