@@ -102,10 +102,13 @@ def rl2_transformer_ml1(ctxt, env_name, task_name, seed, max_episode_length, met
 
     if env_name == "ML1":
         ml_env = metaworld.ML1(task_name)
+        num_tasks = 50
     elif env_name == "ML10":
         ml_env = metaworld.ML10()
+        num_tasks = 10
     elif env_name == "ML45":
         ml_env = metaworld.ML45()
+        num_tasks = 45
 
     tasks = MetaWorldTaskSampler(
             ml_env, 'train',
@@ -125,7 +128,7 @@ def rl2_transformer_ml1(ctxt, env_name, task_name, seed, max_episode_length, met
                                     worker_args=dict(n_episodes_per_trial=1),
                                     n_test_episodes=10)
 
-    env_updates = tasks.sample(50)
+    env_updates = tasks.sample(num_tasks)
     env = env_updates[0]()
 
     env_spec = env.spec
