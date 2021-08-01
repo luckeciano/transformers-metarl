@@ -6,7 +6,7 @@ import warnings
 import akro
 import gym
 import numpy as np
-
+import imageio
 from garage import Environment, EnvSpec, EnvStep, StepType
 
 # The gym environments using one of the packages in the following lists as
@@ -220,7 +220,11 @@ class GymEnv(Environment):
         observation, reward, done, info = self._env.step(action)
 
         if self._visualize:
-            self._env.render(mode='human')
+            if self._screenshot:
+                img = self._env.viewer._read_pixels_as_in_window()
+                imageio.imwrite(self._filepath + str(self._ss_counter) + ".jpg", img)
+                self._ss_counter += 1
+            self._env.render(mode='human') 
 
         reward = float(reward) if not isinstance(reward, float) else reward
         self._step_cnt += 1
@@ -283,9 +287,12 @@ class GymEnv(Environment):
         self._validate_render_mode(mode)
         return self._env.render(mode)
 
-    def visualize(self):
+    def visualize(self, screenshot=False, filepath='screenshot_mujoco'):
         """Creates a visualization of the environment."""
         self._env.render(mode='human')
+        self._screenshot = screenshot
+        self._filepath = filepath
+        self._ss_counter = 0
         self._visualize = True
 
     def close(self):

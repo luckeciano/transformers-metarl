@@ -79,14 +79,14 @@ def rollout(env,
     last_obs, episode_infos = env.reset()
     episode_length = 0
     if animated:
-        env.visualize()
+        env.visualize(screenshot=True, filepath= "./visualization/mujoco/")
     while episode_length < (max_episode_length or np.inf):
         if pause_per_frame is not None:
             time.sleep(pause_per_frame)
         a, agent_info, _, _ = agent.get_action(last_obs)
         obs_emb, em_emb = agent.compute_current_embeddings()
-        #attn_weights, index_memory = agent.compute_attention_weights()
-        #agent_info["attention"] = create_attention_dict(attn_weights, index_memory, episode_length)
+        attn_weights, index_memory = agent.compute_attention_weights()
+        agent_info["attention"] = create_attention_dict(attn_weights, index_memory, episode_length)
         agent_info["obs_emb"] = obs_emb
         agent_info["em_emb"] = em_emb
         if deterministic and 'mean' in agent_info:
@@ -117,29 +117,30 @@ def get_env(env_name):
     return getattr(m, env_name)
 
 @click.command()
-@click.option('--path', default='/data/transformer-metarl/garage/examples/torch/data/local/experiment/transformer_ppo_halfcheetah_16')
+@click.option('--path', default='/data/transformer-metarl/garage/examples/torch/data/local/results/halfcheetah-vel/transformer_ppo_halfcheetah_241')
 @click.option('--env_name', default="HalfCheetahVelEnv")
 def transformer_ppo_halfcheetah(path, env_name):
     """Eval policy with HalfCheetah environment.
     """
     snapshotter = Snapshotter()
-    data = snapshotter.load(path, itr=0)
+    data = snapshotter.load(path, itr=2490)
     # tasks = task_sampler.SetTaskSampler(
     #     HalfCheetahVelEnv,
     #     wrapper=lambda env, _: RL2Env(
     #         GymEnv(env, max_episode_length=200)))
 
     policy = data['algo'].policy
-    # if torch.cuda.is_available():
-    #     set_gpu_mode(True, gpu_id=0)
-    # else:
-    #     set_gpu_mode(False)
+    if torch.cuda.is_available():
+        set_gpu_mode(True, gpu_id=0)
+    else:
+        set_gpu_mode(False)
 
     # algo.to()
 
     env_class = get_env(env_name)
     env = RL2Env(GymEnv(env_class(), max_episode_length=200))
-    tasks = env.sample_tasks(num_tasks=10)
+    tasks = env.sample_tasks(num_tasks=1)
+    tasks = [{'velocity': 0.0}]
     episodes_per_trial=5
 
     obs_emb_file = open("embeddings/obs_embeddings_{0}.tsv".format(env_name), "ab")
@@ -157,26 +158,27 @@ def transformer_ppo_halfcheetah(path, env_name):
         rewards_stats = []
         for ep in range(episodes_per_trial):
             policy.reset_observations()
-            eps = rollout(env, policy, animated=False, deterministic=True)
+            eps = rollout(env, policy, animated=True, deterministic=True)
         
-        #attn_dict = eps["agent_infos"]["attention"][0]
-        #for i in range(attn_dict['weights'].shape[0]):
-        #    attn_weights = attn_dict['weights'][i]
-        #    title = attn_dict['title'][i]
-        #    title = title + " Velocity " + str(velocity) + " Layer " + str(i)
-        #    x_lb = attn_dict['x_label'][i]
-        #    y_lb = attn_dict['y_label'][i]
-        #    plot_attention(attn_weights, x_lb, y_lb, title, "./visualization")
-            for obs_emb, em_emb in zip(eps["agent_infos"]["obs_emb"], eps["agent_infos"]["em_emb"]):
-                # np.savetxt(obs_emb_file, obs_emb.detach().cpu().numpy(), delimiter='\t')
-                # np.savetxt(wm_emb_file, wm_emb.detach().cpu().numpy(), delimiter='\t')
-                # np.savetxt(em_emb_file, em_emb.detach().cpu().numpy(), delimiter='\t')
-                # np.savetxt(metadata_file, np.array([t] + task_id)[np.newaxis], delimiter='\t')
-                t = t + 1
+        for layer in range(len(eps["agent_infos"]["attention"])):
+            attn_dict = eps["agent_infos"]["attention"][layer]
+            for i in range(attn_dict['weights'].shape[0]):
+                attn_weights = attn_dict['weights'][i]
+                title = attn_dict['title'][i]
+                title = " Layer " + str(layer) + title + " Velocity " + str(task['velocity'])
+                x_lb = attn_dict['x_label'][i]
+                y_lb = attn_dict['y_label'][i]
+                plot_attention(attn_weights, x_lb, y_lb, title, "./visualization")
+                for obs_emb, em_emb in zip(eps["agent_infos"]["obs_emb"], eps["agent_infos"]["em_emb"]):
+                    # np.savetxt(obs_emb_file, obs_emb.detach().cpu().numpy(), delimiter='\t')
+                    # np.savetxt(wm_emb_file, wm_emb.detach().cpu().numpy(), delimiter='\t')
+                    # np.savetxt(em_emb_file, em_emb.detach().cpu().numpy(), delimiter='\t')
+                    # np.savetxt(metadata_file, np.array([t] + task_id)[np.newaxis], delimiter='\t')
+                    t = t + 1
 
-            rewards = np.concatenate((rewards, eps['rewards']))
-            rewards_stats.append(sum(eps['rewards']))
-            print(sum(eps['rewards']))
+        rewards = np.concatenate((rewards, eps['rewards']))
+        rewards_stats.append(sum(eps['rewards']))
+        print(sum(eps['rewards']))
 
 
         np.savetxt(rewards_file, rewards[np.newaxis], delimiter=',', fmt='%.3f')

@@ -448,9 +448,9 @@ class Wrapper(Environment):
         """
         return self._env.render(mode)
 
-    def visualize(self):
+    def visualize(self, screenshot=False, filepath='screenshot_mujoco'):
         """Creates a visualization of the wrapped environment."""
-        self._env.visualize()
+        self._env.visualize(screenshot, filepath)
 
     def close(self):
         """Close the wrapped env."""
