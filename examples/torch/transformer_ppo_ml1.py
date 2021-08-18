@@ -203,7 +203,7 @@ def rl2_transformer_ml1(ctxt, env_name, task_name, seed, max_episode_length, met
                     n_epochs=n_epochs,
                     n_epochs_per_eval=5)
 
-    if torch.cuda.is_available():
+    if torch.cuda.is_available() and gpu_id >= 0:
         set_gpu_mode(True, gpu_id)
     else:
         set_gpu_mode(False)
