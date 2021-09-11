@@ -223,7 +223,7 @@ def transformer_ppo_halfcheetah(ctxt, env_name, seed, max_episode_length, meta_b
                                         n_test_episodes=1,
                                         worker_class=RL2Worker,
                                         worker_args=dict(n_episodes_per_trial=2))
-    meta_evaluator = None
+    # meta_evaluator = None
 
     steps_per_epoch = max_opt_epochs * (max_episode_length * episode_per_task * meta_batch_size) // minibatch_size
 
@@ -256,7 +256,7 @@ def transformer_ppo_halfcheetah(ctxt, env_name, seed, max_episode_length, meta_b
                     n_epochs=n_epochs,
                     n_epochs_per_eval=5)
 
-    if torch.cuda.is_available():
+    if torch.cuda.is_available() and gpu_id >= 0:
         set_gpu_mode(True, gpu_id)
     else:
         set_gpu_mode(False)
