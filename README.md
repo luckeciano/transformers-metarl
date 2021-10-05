@@ -1,166 +1,48 @@
-[![Docs](https://readthedocs.org/projects/garage/badge)](http://garage.readthedocs.org/en/latest/)
-[![Build Status](https://travis-ci.com/rlworkgroup/garage.svg?branch=master)](https://travis-ci.com/rlworkgroup/garage)
-![Garage CI](https://github.com/rlworkgroup/garage/workflows/Garage%20CI/badge.svg?event=schedule)
-[![License](https://img.shields.io/badge/license-MIT-blue.svg)](https://github.com/rlworkgroup/garage/blob/master/LICENSE)
-[![codecov](https://codecov.io/gh/rlworkgroup/garage/branch/master/graph/badge.svg)](https://codecov.io/gh/rlworkgroup/garage)
-[![PyPI version](https://badge.fury.io/py/garage.svg)](https://badge.fury.io/py/garage)
+# _Transformers are Meta-Reinforcement Learners_
 
-# garage
+This is the source code for the paper "Transformers are Meta-Reinforcement Learners". This repository is a fork from the [Garage repository](https://github.com/rlworkgroup/garage). This repo is under active development and will be organized for the ICLR 2022 conference.
 
-garage is a toolkit for developing and evaluating reinforcement learning
-algorithms, and an accompanying library of state-of-the-art implementations
-built using that toolkit.
 
-The toolkit provides wide range of modular tools for implementing RL algorithms,
-including:
+## Setup
+To setup the conda environment, execute the following command on the root directory:
 
-* Composable neural network models
-* Replay buffers
-* High-performance samplers
-* An expressive experiment definition interface
-* Tools for reproducibility (e.g. set a global random seed which all components
-  respect)
-* Logging to many outputs, including TensorBoard
-* Reliable experiment checkpointing and resuming
-* Environment interfaces for many popular benchmark suites
-* Supporting for running garage in diverse environments, including always
-  up-to-date Docker containers
-
-See the [latest documentation](https://garage.readthedocs.org/en/latest/) for
-getting started instructions and detailed APIs.
-
-## Installation
-
-```
-pip install --user garage
+```sh
+conda env create -f environment.yml
 ```
 
-## Join the Community
+## Reproducibility
+To run the experiments from the paper, please execute the following experiments.
 
-**Join the [garage-announce mailing list](https://groups.google.com/forum/#!forum/garage-announce/join)**
-for infrequent updates (<1/mo.) on the status of the project and new releases.
-
-Need some help? Want to ask garage is right for your project? Have a question
-which is not quite a bug and not quite a feature request?
-
-**Join the community Slack** by filling out
-[this Google Form](https://docs.google.com/forms/d/e/1FAIpQLSf4AXRIbA1cLGjku4lIRQ6btStWPeIMeG3J17i4_FhFQU8X0g/viewform).
-
-## Algorithms
-
-The table below summarizes the algorithms available in garage.
-
-| Algorithm              | Framework(s)        |
-| ---------------------- | ------------------- |
-| CEM                    | numpy               |
-| CMA-ES                 | numpy               |
-| REINFORCE (a.k.a. VPG) | PyTorch, TensorFlow |
-| DDPG                   | PyTorch, TensorFlow |
-| DQN                    | PyTorch, TensorFlow |
-| DDQN                   | PyTorch, TensorFlow |
-| ERWR                   | TensorFlow          |
-| NPO                    | TensorFlow          |
-| PPO                    | PyTorch, TensorFlow |
-| REPS                   | TensorFlow          |
-| TD3                    | PyTorch, TensorFlow |
-| TNPG                   | TensorFlow          |
-| TRPO                   | PyTorch, TensorFlow |
-| MAML                   | PyTorch             |
-| RL2                    | TensorFlow          |
-| PEARL                  | PyTorch             |
-| SAC                    | PyTorch             |
-| MTSAC                  | PyTorch             |
-| MTPPO                  | PyTorch, TensorFlow |
-| MTTRPO                 | PyTorch, TensorFlow |
-| Task Embedding         | TensorFlow          |
-| Behavioral Cloning     | PyTorch             |
-
-## Supported Tools and Frameworks
-
-garage requires Python 3.6+. If you need Python 3.5 support, the last garage
-release to support Python 3.5 was
-[v2020.06](https://github.com/rlworkgroup/garage/releases/tag/v2020.06.0).
-
-The package is tested on Ubuntu 18.04. It is also known to run on Ubuntu 16.04,
-18.04, and 20.04, and recent versions of macOS using Homebrew. Windows users can
-install garage via WSL, or by making use of the Docker containers.
-
-We currently support [PyTorch](https://pytorch.org/) and
-[TensorFlow](https://www.tensorflow.org/) for implementing the neural network
-portions of RL algorithms, and additions of new framework support are always
-welcome. PyTorch modules can be found in the package
-[`garage.torch`](https://github.com/rlworkgroup/garage/tree/master/src/garage/torch)
-and TensorFlow modules can be found in the package
-[`garage.tf`](https://github.com/rlworkgroup/garage/tree/master/src/garage/tf).
-Algorithms which do not require neural networks are found in the package
-[`garage.np`](https://github.com/rlworkgroup/garage/tree/master/src/garage/np).
-
-The package is available for download on PyPI, and we ensure that it installs
-successfully into environments defined using
-[conda](https://docs.conda.io/en/latest/),
-[Pipenv](https://pipenv.readthedocs.io/en/latest/), and
-[virtualenv](https://virtualenv.pypa.io/en/latest/).
-
-## Testing
-
-The most important feature of garage is its comprehensive automated unit test
-and benchmarking suite, which helps ensure that the algorithms and modules in
-garage maintain state-of-the-art performance as the software changes.
-
-Our testing strategy has three pillars:
-
-* **Automation:**
-  We use continuous integration to test all modules and algorithms in garage
-  before adding any change. The full installation and test suite is also run
-  nightly, to detect regressions.
-* **Acceptance Testing:**
-  Any commit which might change the performance of an algorithm is subjected to
-  comprehensive benchmarks on the relevant algorithms before it is merged
-* **Benchmarks and Monitoring:**
-  We benchmark the full suite of algorithms against their relevant benchmarks
-  and widely-used implementations regularly, to detect regressions and
-  improvements we may have missed.
-
-## Supported Releases
-
-| Release | Build Status | Last date of support |
-| ------- | ------------ | -------------------- |
-| [v2020.06](https://github.com/rlworkgroup/garage/releases/tag/v2020.06.0) | [![Build Status](https://travis-ci.com/rlworkgroup/garage.svg?branch=release-2020.06)](https://travis-ci.com/rlworkgroup/garage) | February 28th, 2021 |
-| [v2019.10](https://github.com/rlworkgroup/garage/releases/tag/v2019.10.0) | [![Build Status](https://travis-ci.com/rlworkgroup/garage.svg?branch=release-2019.10)](https://travis-ci.com/rlworkgroup/garage) | October 31st, 2020 |
-
-Garage releases a new stable version approximately every 4 months, in February,
-June, and October. Maintenance releases have a stable API and dependency tree,
-and receive bug fixes and critical improvements but not new features. We
-currently support each release for a window of 8 months.
-
-## Citing garage
-
-If you use garage for academic research, please cite the repository using the
-following BibTeX entry. You should update the `commit` field with the commit or
-release tag your publication uses.
-
-```latex
-@misc{garage,
- author = {The garage contributors},
- title = {Garage: A toolkit for reproducible reinforcement learning research},
- year = {2019},
- publisher = {GitHub},
- journal = {GitHub repository},
- howpublished = {\url{https://github.com/rlworkgroup/garage}},
- commit = {be070842071f736eb24f28e4b902a9f144f5c97b}
-}
+#### HalfCheetahVel
+```sh
+./transformer_ppo_halfcheetah.py --wm_embedding_hidden_size=32 --n_heads=16 --d_model=128 --layers=4 --wm_size=5 --em_size=5 --dim_ff=512 --meta_batch_size=20 --episode_per_task=2 --discount=0.9 --gae_lambda=0.8 --lr_clip_range=0.1 --policy_lr=3e-05 --vf_lr=0.00025 --minibatch_size=256 --max_opt_epochs=10 --policy_ent_coeff=0.0 --entropy_method=regularized --architecture=Encoder  --policy_head_input=latest_memory --attn_type=1 --pre_lnorm --init_params --use_softplus_entropy --gating=residual --learn_std  --init_std=0.2  --tfixup --remove_ln --n_epochs=2500 --policy_lr_schedule=decay --decay_epoch_init=100 --decay_epoch_end=750 --min_lr_factor=0.1 --env_name=HalfCheetahVelEnv
 ```
 
-## Credits
+#### HalfCheetahDir
 
-The original code for garage was adopted from predecessor project called
-[rllab](https://github.com/rll/rllab). The garage project is grateful for the
-contributions of the original rllab authors, and hopes to continue advancing the
-state of reproducibility in RL research in the same spirit.
+```sh
+./transformer_ppo_halfcheetah.py --wm_embedding_hidden_size=32 --n_heads=16 --d_model=128 --layers=4 --wm_size=5 --em_size=5 --dim_ff=512 --meta_batch_size=20 --episode_per_task=2 --discount=0.9 --gae_lambda=0.8 --lr_clip_range=0.2 --policy_lr=3e-05 --vf_lr=3e-05 --minibatch_size=256 --max_opt_epochs=10 --policy_ent_coeff=0.0 --entropy_method=regularized --architecture=Encoder --policy_head_input=latest_memory --init_std=0.5 --remove_ln --tfixup --learn_std --pre_lnorm --init_params --use_softplus_entropy --policy_lr_schedule=decay --vf_lr_schedule=decay --share_network --decay_epoch_init=100 --decay_epoch_end=3700 --min_lr_factor=0.0001 --policy_head_type=Default --env_name=HalfCheetahDirEnv
+```
 
-rllab was developed by Rocky Duan (UC Berkeley/Covariant), Peter Chen
-(UC Berkeley/Covariant), Rein Houthooft (UC Berkeley/Happy Elements), John
-Schulman (UC Berkeley/OpenAI), and Pieter Abbeel (UC Berkeley/Covariant).
 
----
-<p align="center" style="align-items:center; display:inline-block">Made with &#10084; &nbsp;at <a href="https://robotics.usc.edu/resl/" target="_blank"><img align="absmiddle" src="https://github.com/rlworkgroup/garage/blob/master/docs/_static/resl_logo.png?raw=true" height="60px"></a> and &nbsp;<a href="https://viterbischool.usc.edu/" target="_blank"><img align="absmiddle" src="https://github.com/rlworkgroup/garage/blob/master/docs/_static/viterbi_logo.png?raw=true" height="30px"></a></p>
+
+#### AntDirEnv
+
+```sh
+./transformer_ppo_halfcheetah.py --wm_embedding_hidden_size=32 --n_heads=16 --d_model=128 --layers=4 --wm_size=5 --em_size=5 --dim_ff=512 --meta_batch_size=20 --episode_per_task=2 --discount=0.92 --gae_lambda=0.8 --lr_clip_range=0.2 --policy_lr=3e-05 --vf_lr=3e-05 --minibatch_size=256 --max_opt_epochs=10 --policy_ent_coeff=0.0 --entropy_method=regularized --architecture=Encoder --policy_head_input=latest_memory --init_std=0.5 --remove_ln --tfixup --learn_std --pre_lnorm --init_params --use_softplus_entropy --policy_lr_schedule=decay --vf_lr_schedule=decay --share_network --decay_epoch_init=500 --decay_epoch_end=3500 --min_lr_factor=0.0001 --policy_head_type=Default --output_weights_scale=0.01 --env_name=AntDirEnv
+```
+
+#### MetaWorld
+
+For MetaWorld environments, please use with the correct env_name and task_name:
+
+```sh
+./transformer_ppo_ml1.py --wm_embedding_hidden_size=32 --n_heads=4 --d_model=32 --layers=4 --wm_size=5 --em_size=5 --dim_ff=128 --meta_batch_size=25 --episode_per_task=10 --discount=0.9 --gae_lambda=0.95 --lr_clip_range=0.2 --policy_lr=5e-05 --vf_lr=5e-05 --minibatch_size=32 --max_opt_epochs=10 --policy_ent_coeff=0.0 --entropy_method=regularized --architecture=Encoder --policy_head_input=latest_memory --init_std=1.0 --remove_ln --tfixup --learn_std --pre_lnorm --init_params --use_softplus_entropy --policy_lr_schedule=no_schedule --vf_lr_schedule=no_schedule --decay_epoch_init=500 --decay_epoch_end=3500 --min_lr_factor=0.0001 --policy_head_type=Default --output_weights_scale=0.01 --env_name=<env_name> --task_name=<task_name> --max_episode_length=500
+```
+
+
+## Reproducibility -- Baselines
+
+For MuJoCo tasks, we used [PEARL repository](https://github.com/katerakelly/oyster) (for PEARL) and [ProMP repository](https://github.com/jonasrothfuss/ProMP) for RL2-PPO and MAML-TRPO.
+
+For MetaWorld tasks, we [reproduced the experiments in the MetaWorld paper using the Garage Repository](https://github.com/rlworkgroup/garage/pull/2287).
