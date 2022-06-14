@@ -1,6 +1,6 @@
 # _Transformers are Meta-Reinforcement Learners_
 
-This is the source code for the paper "Transformers are Meta-Reinforcement Learners". This repository is a fork from the [Garage repository](https://github.com/rlworkgroup/garage). This repo is under active development and will be organized for the ICLR 2022 conference.
+This is the source code for the paper "Transformers are Meta-Reinforcement Learners", presented as part of the ICML 2022. This repository is a fork from the [Garage repository](https://github.com/rlworkgroup/garage).
 
 
 ## Setup
