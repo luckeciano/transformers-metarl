@@ -11,7 +11,7 @@ conda env create -f environment.yml
 ```
 
 ## Reproducibility
-To run the experiments from the paper, please execute the following experiments.
+To run the experiments from the paper, please execute the following experiments. The experiments scripts are located in the `examples/torch` directory.
 
 #### HalfCheetahVel
 ```sh
